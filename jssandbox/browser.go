@@ -18,10 +18,76 @@ func init() {
 	logrus.SetLevel(logrus.FatalLevel)
 }
 
+// createBrowserContext 创建配置了反检测选项的浏览器上下文
+// 包括隐藏自动化特征、设置真实User-Agent等
+func (sb *Sandbox) createBrowserContext() (context.Context, context.CancelFunc) {
+	// 创建 allocator 选项，配置反检测参数
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.Flag("headless", true),                                 // 保持headless模式
+		chromedp.Flag("disable-blink-features", "AutomationControlled"), // 隐藏自动化特征
+		chromedp.UserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"), // 设置真实User-Agent
+		chromedp.Flag("disable-dev-shm-usage", true),              // 避免共享内存问题
+		chromedp.Flag("no-sandbox", true),                         // 在某些环境下需要
+		chromedp.Flag("disable-gpu", true),                        // 在headless模式下禁用GPU
+		chromedp.Flag("disable-setuid-sandbox", true),             // 禁用setuid沙箱
+		chromedp.Flag("disable-web-security", false),              // 保持web安全
+		chromedp.Flag("disable-features", "VizDisplayCompositor"), // 禁用某些可能暴露的特征
+	)
+
+	allocCtx, cancel := chromedp.NewExecAllocator(sb.ctx, opts...)
+	ctx, cancel2 := chromedp.NewContext(allocCtx)
+
+	return ctx, func() {
+		cancel2()
+		cancel()
+	}
+}
+
+// injectStealthScript 注入反检测脚本，隐藏webdriver特征
+// 在页面加载后立即执行，修改navigator对象
+func injectStealthScript() chromedp.Action {
+	stealthScript := `
+		// 隐藏 webdriver 特征
+		Object.defineProperty(navigator, 'webdriver', {
+			get: () => undefined
+		});
+		
+		// 添加 Chrome 对象
+		if (!window.chrome) {
+			window.chrome = {
+				runtime: {}
+			};
+		}
+		
+		// 修改 navigator.plugins 使其看起来更真实
+		if (navigator.plugins.length === 0) {
+			Object.defineProperty(navigator, 'plugins', {
+				get: () => [1, 2, 3, 4, 5]
+			});
+		}
+		
+		// 修改 navigator.languages
+		Object.defineProperty(navigator, 'languages', {
+			get: () => ['zh-CN', 'zh', 'en-US', 'en']
+		});
+		
+		// 覆盖 permissions API
+		if (window.navigator.permissions && window.navigator.permissions.query) {
+			const originalQuery = window.navigator.permissions.query;
+			window.navigator.permissions.query = (parameters) => (
+				parameters.name === 'notifications' ?
+					Promise.resolve({ state: Notification.permission }) :
+					originalQuery(parameters)
+			);
+		}
+	`
+	return chromedp.Evaluate(stealthScript, nil)
+}
+
 // registerBrowser 注册浏览器操作功能到JavaScript运行时
 func (sb *Sandbox) registerBrowser() {
 	sb.vm.Set("browserNavigate", func(url string) goja.Value {
-		ctx, cancel := chromedp.NewContext(sb.ctx)
+		ctx, cancel := sb.createBrowserContext()
 		defer cancel()
 
 		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
@@ -31,6 +97,7 @@ func (sb *Sandbox) registerBrowser() {
 		err := chromedp.Run(ctx,
 			chromedp.Navigate(url),
 			chromedp.WaitVisible("body", chromedp.ByQuery),
+			injectStealthScript(), // 在页面加载后注入反检测脚本
 			chromedp.OuterHTML("html", &html),
 		)
 
@@ -61,7 +128,7 @@ func (sb *Sandbox) registerBrowser() {
 			outputPath = call.Arguments[1].String()
 		}
 
-		ctx, cancel := chromedp.NewContext(sb.ctx)
+		ctx, cancel := sb.createBrowserContext()
 		defer cancel()
 
 		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
@@ -71,6 +138,7 @@ func (sb *Sandbox) registerBrowser() {
 		err := chromedp.Run(ctx,
 			chromedp.Navigate(url),
 			chromedp.WaitVisible("body", chromedp.ByQuery),
+			injectStealthScript(), // 在页面加载后注入反检测脚本
 			chromedp.CaptureScreenshot(&buf),
 		)
 
@@ -107,7 +175,7 @@ func (sb *Sandbox) registerBrowser() {
 		url := call.Arguments[0].String()
 		jsCode := call.Arguments[1].String()
 
-		ctx, cancel := chromedp.NewContext(sb.ctx)
+		ctx, cancel := sb.createBrowserContext()
 		defer cancel()
 
 		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
@@ -117,6 +185,7 @@ func (sb *Sandbox) registerBrowser() {
 		err := chromedp.Run(ctx,
 			chromedp.Navigate(url),
 			chromedp.WaitVisible("body", chromedp.ByQuery),
+			injectStealthScript(), // 在页面加载后注入反检测脚本
 			chromedp.Evaluate(jsCode, &result),
 		)
 
@@ -144,7 +213,7 @@ func (sb *Sandbox) registerBrowser() {
 		url := call.Arguments[0].String()
 		selector := call.Arguments[1].String()
 
-		ctx, cancel := chromedp.NewContext(sb.ctx)
+		ctx, cancel := sb.createBrowserContext()
 		defer cancel()
 
 		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
@@ -152,6 +221,8 @@ func (sb *Sandbox) registerBrowser() {
 
 		err := chromedp.Run(ctx,
 			chromedp.Navigate(url),
+			chromedp.WaitVisible("body", chromedp.ByQuery),
+			injectStealthScript(), // 在页面加载后注入反检测脚本
 			chromedp.WaitVisible(selector, chromedp.ByQuery),
 			chromedp.Click(selector, chromedp.ByQuery),
 		)
@@ -180,7 +251,7 @@ func (sb *Sandbox) registerBrowser() {
 		selector := call.Arguments[1].String()
 		value := call.Arguments[2].String()
 
-		ctx, cancel := chromedp.NewContext(sb.ctx)
+		ctx, cancel := sb.createBrowserContext()
 		defer cancel()
 
 		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
@@ -188,6 +259,8 @@ func (sb *Sandbox) registerBrowser() {
 
 		err := chromedp.Run(ctx,
 			chromedp.Navigate(url),
+			chromedp.WaitVisible("body", chromedp.ByQuery),
+			injectStealthScript(), // 在页面加载后注入反检测脚本
 			chromedp.WaitVisible(selector, chromedp.ByQuery),
 			chromedp.SendKeys(selector, value, chromedp.ByQuery),
 		)
