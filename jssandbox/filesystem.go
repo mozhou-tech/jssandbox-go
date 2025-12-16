@@ -64,10 +64,10 @@ func (sb *Sandbox) registerFileSystem() {
 		}
 
 		result := map[string]interface{}{
-			"name":    info.Name(),
-			"size":    info.Size(),
-			"mode":    info.Mode().String(),
-			"isDir":   info.IsDir(),
+			"name":  info.Name(),
+			"size":  info.Size(),
+			"mode":  info.Mode().String(),
+			"isDir": info.IsDir(),
 		}
 
 		// 获取时间信息
@@ -76,11 +76,14 @@ func (sb *Sandbox) registerFileSystem() {
 			if t.HasBirthTime() {
 				result["birthTime"] = t.BirthTime().Format("2006-01-02 15:04:05")
 			}
-			if t.HasModTime() {
-				result["modTime"] = t.ModTime().Format("2006-01-02 15:04:05")
+			// ModTime 和 AccessTime 总是可用的，直接使用
+			modTime := t.ModTime()
+			if !modTime.IsZero() {
+				result["modTime"] = modTime.Format("2006-01-02 15:04:05")
 			}
-			if t.HasAccessTime() {
-				result["accessTime"] = t.AccessTime().Format("2006-01-02 15:04:05")
+			accessTime := t.AccessTime()
+			if !accessTime.IsZero() {
+				result["accessTime"] = accessTime.Format("2006-01-02 15:04:05")
 			}
 		} else {
 			result["modTime"] = info.ModTime().Format("2006-01-02 15:04:05")
@@ -89,14 +92,14 @@ func (sb *Sandbox) registerFileSystem() {
 		// 获取文件类型（优先使用filetype库检测，失败则使用扩展名）
 		ext := filepath.Ext(filePath)
 		result["extension"] = ext
-		
+
 		// 尝试使用filetype库检测
 		file, err := os.Open(filePath)
 		if err == nil {
 			buf := make([]byte, 261)
 			n, _ := file.Read(buf)
 			file.Close()
-			
+
 			if kind, err := filetype.Match(buf[:n]); err == nil && kind != filetype.Unknown {
 				result["type"] = kind.MIME.Value
 				result["mime"] = kind.MIME.Value
@@ -401,4 +404,3 @@ func getFileType(ext string) string {
 	}
 	return "未知类型"
 }
-

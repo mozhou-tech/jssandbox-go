@@ -103,9 +103,16 @@ func (sb *Sandbox) registerHTTP() {
 
 	// 便捷方法
 	sb.vm.Set("httpGet", func(url string) goja.Value {
-		return sb.vm.Get("httpRequest").(goja.Callable)(goja.Undefined(), sb.vm.ToValue(url), sb.vm.ToValue(map[string]interface{}{
-			"method": "GET",
-		}))
+		httpRequestVal := sb.vm.Get("httpRequest")
+		if callable, ok := goja.AssertFunction(httpRequestVal); ok {
+			result, _ := callable(goja.Undefined(), sb.vm.ToValue(url), sb.vm.ToValue(map[string]interface{}{
+				"method": "GET",
+			}))
+			return result
+		}
+		return sb.vm.ToValue(map[string]interface{}{
+			"error": "httpRequest 不是一个函数",
+		})
 	})
 
 	sb.vm.Set("httpPost", func(call goja.FunctionCall) goja.Value {
@@ -119,13 +126,19 @@ func (sb *Sandbox) registerHTTP() {
 		if len(call.Arguments) > 1 {
 			body = call.Arguments[1].String()
 		}
-		return sb.vm.Get("httpRequest").(goja.Callable)(goja.Undefined(), sb.vm.ToValue(url), sb.vm.ToValue(map[string]interface{}{
-			"method": "POST",
-			"body":   body,
-			"headers": map[string]string{
-				"Content-Type": "application/json",
-			},
-		}))
+		httpRequestVal := sb.vm.Get("httpRequest")
+		if callable, ok := goja.AssertFunction(httpRequestVal); ok {
+			result, _ := callable(goja.Undefined(), sb.vm.ToValue(url), sb.vm.ToValue(map[string]interface{}{
+				"method": "POST",
+				"body":   body,
+				"headers": map[string]string{
+					"Content-Type": "application/json",
+				},
+			}))
+			return result
+		}
+		return sb.vm.ToValue(map[string]interface{}{
+			"error": "httpRequest 不是一个函数",
+		})
 	})
 }
-

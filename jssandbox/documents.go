@@ -5,11 +5,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	"github.com/dop251/goja"
 	"github.com/unidoc/unioffice/document"
 	"github.com/unidoc/unioffice/presentation"
 	"github.com/unidoc/unipdf/v3/model"
+	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
 )
 
@@ -48,7 +48,10 @@ func (sb *Sandbox) registerDocuments() {
 
 		var allText strings.Builder
 		for _, para := range doc.Paragraphs() {
-			allText.WriteString(para.Text())
+			// 遍历段落中的 runs 来提取文本
+			for _, run := range para.Runs() {
+				allText.WriteString(run.Text())
+			}
 			allText.WriteString("\n")
 		}
 
@@ -68,9 +71,9 @@ func (sb *Sandbox) registerDocuments() {
 		}
 
 		return sb.vm.ToValue(map[string]interface{}{
-			"text":      pageText,
-			"page":      page,
-			"pageSize":  pageSize,
+			"text":       pageText,
+			"page":       page,
+			"pageSize":   pageSize,
 			"totalPages": totalPages,
 			"totalChars": totalChars,
 		})
@@ -184,9 +187,32 @@ func (sb *Sandbox) registerDocuments() {
 		var slides []map[string]interface{}
 		for i, slide := range ppt.Slides() {
 			var text strings.Builder
-			for _, para := range slide.Paragraphs() {
-				text.WriteString(para.Text())
-				text.WriteString("\n")
+			// 提取 slide 中的文本内容
+			// 遍历 slide 的 XML 结构来提取文本
+			slideXML := slide.X()
+			if slideXML != nil && slideXML.CSld != nil && slideXML.CSld.SpTree != nil {
+				for _, choice := range slideXML.CSld.SpTree.Choice {
+					// choice.Sp 是一个切片，需要遍历
+					for _, sp := range choice.Sp {
+						if sp != nil && sp.TxBody != nil {
+							// TxBody 是单个对象，不是切片
+							txBody := sp.TxBody
+							if txBody.P != nil {
+								for _, p := range txBody.P {
+									// 遍历段落中的 runs
+									if p.EG_TextRun != nil {
+										for _, run := range p.EG_TextRun {
+											if run.R != nil && run.R.T != "" {
+												text.WriteString(run.R.T)
+											}
+										}
+									}
+									text.WriteString("\n")
+								}
+							}
+						}
+					}
+				}
 			}
 			slides = append(slides, map[string]interface{}{
 				"index": i + 1,
@@ -209,10 +235,10 @@ func (sb *Sandbox) registerDocuments() {
 		}
 
 		return sb.vm.ToValue(map[string]interface{}{
-			"slides":     pageSlides,
-			"page":       page,
-			"pageSize":   pageSize,
-			"totalPages": totalPages,
+			"slides":      pageSlides,
+			"page":        page,
+			"pageSize":    pageSize,
+			"totalPages":  totalPages,
 			"totalSlides": totalSlides,
 		})
 	})
@@ -264,7 +290,7 @@ func (sb *Sandbox) registerDocuments() {
 
 		totalPages := (int(numPages) + pageSize - 1) / pageSize
 
-		startPage := (page - 1) * pageSize + 1
+		startPage := (page-1)*pageSize + 1
 		endPage := startPage + pageSize - 1
 		if endPage > int(numPages) {
 			endPage = int(numPages)
@@ -290,10 +316,10 @@ func (sb *Sandbox) registerDocuments() {
 		}
 
 		return sb.vm.ToValue(map[string]interface{}{
-			"pages":      pages,
-			"page":       page,
-			"pageSize":   pageSize,
-			"totalPages": totalPages,
+			"pages":         pages,
+			"page":          page,
+			"pageSize":      pageSize,
+			"totalPages":    totalPages,
 			"totalPDFPages": int(numPages),
 		})
 	})
@@ -305,4 +331,3 @@ func extractTextFromPDFPage(page *model.PdfPage) (string, error) {
 	// 这里返回一个占位符，实际使用时需要实现真正的文本提取逻辑
 	return fmt.Sprintf("PDF页面内容（需要实现文本提取）"), nil
 }
-
