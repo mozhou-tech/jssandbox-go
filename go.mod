@@ -6,8 +6,10 @@ require (
 	github.com/360EntSecGroup-Skylar/excelize/v2 v2.8.0
 	github.com/chromedp/chromedp v0.9.3
 	github.com/djherbis/times v1.5.0
+	github.com/disintegration/imaging v1.6.2
 	github.com/dop251/goja v0.0.0-20231027120936-b396bb4c349d
 	github.com/dustin/go-humanize v1.0.1
+	github.com/h2non/filetype v1.1.3
 	github.com/shirou/gopsutil/v3 v3.23.10
 	github.com/unidoc/unioffice v1.25.0
 	github.com/unidoc/unipdf/v3 v3.54.0

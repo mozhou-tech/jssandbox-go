@@ -77,6 +77,24 @@ go run cmd/jssandbox/main.go
 - `browserClick(url, selector)` - 点击元素
 - `browserFill(url, selector, value)` - 填充表单
 
+### 6. 图片处理
+- `imageResize(inputPath, outputPath, width, height?)` - 调整图片大小
+- `imageCrop(inputPath, outputPath, x, y, width, height)` - 裁剪图片
+- `imageRotate(inputPath, outputPath, angle)` - 旋转图片
+- `imageFlip(inputPath, outputPath, direction)` - 翻转图片（horizontal/vertical）
+- `imageInfo(filePath)` - 获取图片信息（宽度、高度、格式）
+- `imageConvert(inputPath, outputPath)` - 转换图片格式
+- `imageQuality(inputPath, outputPath, quality)` - 调整图片质量（1-100，仅JPEG）
+
+### 7. 文件类型检测
+- `detectFileType(filePath)` - 检测文件类型（返回MIME、扩展名等）
+- `isImage(filePath)` - 检测是否为图片
+- `isVideo(filePath)` - 检测是否为视频
+- `isAudio(filePath)` - 检测是否为音频
+- `isDocument(filePath)` - 检测是否为文档
+- `isFont(filePath)` - 检测是否为字体
+- `isArchive(filePath)` - 检测是否为归档文件
+
 ## 示例代码
 
 ### 系统信息查询
@@ -138,5 +156,43 @@ if (result.success) {
 // 截图
 var screenshot = browserScreenshot("https://www.example.com", "screenshot.png");
 console.log("截图保存到:", screenshot.path);
+```
+
+### 图片处理
+```javascript
+// 调整图片大小
+var result = imageResize("input.jpg", "output.jpg", 800, 600);
+console.log("调整大小成功:", result.success);
+
+// 获取图片信息
+var info = imageInfo("photo.png");
+console.log("图片尺寸:", info.width, "x", info.height);
+
+// 旋转图片
+imageRotate("input.jpg", "output.jpg", 90);
+
+// 翻转图片
+imageFlip("input.jpg", "output.jpg", "horizontal");
+
+// 调整JPEG质量
+imageQuality("input.jpg", "output.jpg", 85);
+```
+
+### 文件类型检测
+```javascript
+// 检测文件类型
+var type = detectFileType("file.bin");
+if (!type.unknown) {
+    console.log("MIME类型:", type.mime);
+    console.log("扩展名:", type.extension);
+}
+
+// 检测是否为图片
+var isImg = isImage("photo.jpg");
+console.log("是图片:", isImg.isImage);
+
+// 检测是否为视频
+var isVid = isVideo("video.mp4");
+console.log("是视频:", isVid.isVideo);
 ```
 

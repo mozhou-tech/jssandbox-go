@@ -17,6 +17,7 @@ import (
 
 	"github.com/djherbis/times"
 	"github.com/dop251/goja"
+	"github.com/h2non/filetype"
 	"go.uber.org/zap"
 )
 
@@ -85,10 +86,30 @@ func (sb *Sandbox) registerFileSystem() {
 			result["modTime"] = info.ModTime().Format("2006-01-02 15:04:05")
 		}
 
-		// 获取文件类型
+		// 获取文件类型（优先使用filetype库检测，失败则使用扩展名）
 		ext := filepath.Ext(filePath)
 		result["extension"] = ext
-		result["type"] = getFileType(ext)
+		
+		// 尝试使用filetype库检测
+		file, err := os.Open(filePath)
+		if err == nil {
+			buf := make([]byte, 261)
+			n, _ := file.Read(buf)
+			file.Close()
+			
+			if kind, err := filetype.Match(buf[:n]); err == nil && kind != filetype.Unknown {
+				result["type"] = kind.MIME.Value
+				result["mime"] = kind.MIME.Value
+				result["mimeType"] = kind.MIME.Type
+				result["mimeSubtype"] = kind.MIME.Subtype
+			} else {
+				// 回退到基于扩展名的判断
+				result["type"] = getFileType(ext)
+			}
+		} else {
+			// 回退到基于扩展名的判断
+			result["type"] = getFileType(ext)
+		}
 
 		return sb.vm.ToValue(result)
 	})

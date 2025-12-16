@@ -57,6 +57,10 @@ func (sb *Sandbox) registerExtensions() {
 	sb.registerBrowser()
 	// 注册文档读取功能
 	sb.registerDocuments()
+	// 注册图片处理功能
+	sb.registerImageProcessing()
+	// 注册文件类型检测功能
+	sb.registerFileTypeDetection()
 }
 
 // Run 执行JavaScript代码
