@@ -2,7 +2,7 @@ package jssandbox
 
 import (
 	"context"
-	"image"
+	"image/color"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,7 +22,7 @@ func TestImageResize(t *testing.T) {
 	outputPath := filepath.Join(testDir, "output.png")
 
 	// 创建一个简单的测试图片
-	img := imaging.New(100, 100, imaging.White)
+	img := imaging.New(100, 100, color.White)
 	err := imaging.Save(img, inputPath)
 	if err != nil {
 		t.Fatalf("创建测试图片失败: %v", err)
@@ -71,7 +71,7 @@ func TestImageInfo(t *testing.T) {
 	testFile := filepath.Join(testDir, "test.png")
 
 	// 创建一个测试图片
-	img := imaging.New(200, 150, imaging.White)
+	img := imaging.New(200, 150, color.White)
 	err := imaging.Save(img, testFile)
 	if err != nil {
 		t.Fatalf("创建测试图片失败: %v", err)
@@ -108,7 +108,7 @@ func TestImageCrop(t *testing.T) {
 	inputPath := filepath.Join(testDir, "input.png")
 	outputPath := filepath.Join(testDir, "output.png")
 
-	img := imaging.New(100, 100, imaging.White)
+	img := imaging.New(100, 100, color.White)
 	err := imaging.Save(img, inputPath)
 	if err != nil {
 		t.Fatalf("创建测试图片失败: %v", err)
@@ -140,7 +140,7 @@ func TestImageRotate(t *testing.T) {
 	inputPath := filepath.Join(testDir, "input.png")
 	outputPath := filepath.Join(testDir, "output.png")
 
-	img := imaging.New(100, 100, imaging.White)
+	img := imaging.New(100, 100, color.White)
 	err := imaging.Save(img, inputPath)
 	if err != nil {
 		t.Fatalf("创建测试图片失败: %v", err)
@@ -172,7 +172,7 @@ func TestImageFlip(t *testing.T) {
 	inputPath := filepath.Join(testDir, "input.png")
 	outputPath := filepath.Join(testDir, "output.png")
 
-	img := imaging.New(100, 100, imaging.White)
+	img := imaging.New(100, 100, color.White)
 	err := imaging.Save(img, inputPath)
 	if err != nil {
 		t.Fatalf("创建测试图片失败: %v", err)

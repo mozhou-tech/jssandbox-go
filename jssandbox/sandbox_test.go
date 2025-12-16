@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	"go.uber.org/zap"
 )
 
@@ -69,7 +68,7 @@ func TestSandbox_Run(t *testing.T) {
 		},
 		{
 			name:    "返回对象",
-			code:    "{a: 1, b: 2}",
+			code:    "({a: 1, b: 2})",
 			wantErr: false,
 		},
 	}
@@ -146,7 +145,7 @@ func TestSandbox_Get(t *testing.T) {
 
 	// 先设置一个变量
 	sb.Run("var x = 100;")
-	
+
 	// 获取变量
 	value := sb.Get("x")
 	if value == nil {
@@ -161,7 +160,7 @@ func TestSandbox_Get(t *testing.T) {
 func TestSandbox_Close(t *testing.T) {
 	ctx := context.Background()
 	sb := NewSandbox(ctx)
-	
+
 	err := sb.Close()
 	if err != nil {
 		t.Errorf("Close() error = %v", err)
@@ -249,4 +248,3 @@ func TestSandbox_ContextCancellation(t *testing.T) {
 		t.Logf("RunWithTimeout在context取消后返回错误: %v", err)
 	}
 }
-

@@ -7,8 +7,16 @@ import (
 
 	"github.com/chromedp/chromedp"
 	"github.com/dop251/goja"
+	"github.com/sirupsen/logrus"
 	"go.uber.org/zap"
 )
+
+func init() {
+	// 设置 chromedp 使用的 logrus logger 级别为 Fatal，抑制解析错误和警告
+	// 这些错误（如 "could not unmarshal event" 和 "unknown PrivateNetworkRequestPolicy value"）
+	// 通常来自 Chrome DevTools Protocol 事件解析，不影响功能，但会在日志中产生噪音
+	logrus.SetLevel(logrus.FatalLevel)
+}
 
 // registerBrowser 注册浏览器操作功能到JavaScript运行时
 func (sb *Sandbox) registerBrowser() {
@@ -197,4 +205,3 @@ func (sb *Sandbox) registerBrowser() {
 		})
 	})
 }
-

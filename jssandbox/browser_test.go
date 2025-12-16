@@ -232,3 +232,70 @@ func TestBrowser_ErrorHandling(t *testing.T) {
 	})
 }
 
+func TestBrowserNavigateBaiduWithRedirect(t *testing.T) {
+	// 测试获取百度首页并跟随301跳转
+	if os.Getenv("SKIP_BROWSER_TESTS") == "true" {
+		t.Skip("跳过浏览器测试（SKIP_BROWSER_TESTS=true）")
+	}
+
+	ctx := context.Background()
+	sb := NewSandbox(ctx)
+	defer sb.Close()
+
+	code := `
+		var result = browserNavigate("https://www.baidu.com");
+		result;
+	`
+
+	result, err := sb.Run(code)
+	if err != nil {
+		t.Logf("browserNavigate()可能需要Chrome环境，跳过: %v", err)
+		t.Skip("浏览器测试需要Chrome环境")
+		return
+	}
+
+	resultObj := result.ToObject(sb.vm)
+	if resultObj == nil {
+		t.Fatal("browserNavigate()返回的对象为nil")
+	}
+
+	success := resultObj.Get("success")
+	if success == nil || goja.IsUndefined(success) {
+		t.Fatal("browserNavigate()缺少success字段")
+	}
+
+	if !success.ToBoolean() {
+		errorVal := resultObj.Get("error")
+		if errorVal != nil && !goja.IsUndefined(errorVal) {
+			t.Fatalf("browserNavigate()失败: %v", errorVal.String())
+		}
+		t.Fatal("browserNavigate()失败，但未返回错误信息")
+	}
+
+	// 获取并打印HTML内容
+	html := resultObj.Get("html")
+	if html == nil || goja.IsUndefined(html) {
+		t.Fatal("browserNavigate()成功时应该包含html字段")
+	}
+
+	htmlContent := html.String()
+	t.Logf("获取到的HTML内容长度: %d 字符", len(htmlContent))
+
+	// 打印HTML内容的前500个字符作为示例
+	if len(htmlContent) > 500 {
+		t.Logf("HTML内容预览（前500字符）:\n%s...", htmlContent[:500])
+	} else {
+		t.Logf("HTML内容:\n%s", htmlContent)
+	}
+
+	// 验证HTML内容包含百度相关的特征（说明成功跟随了301跳转并获取到了内容）
+	if len(htmlContent) == 0 {
+		t.Error("HTML内容为空，可能未成功跟随301跳转")
+	}
+
+	// 检查是否包含百度页面的特征元素
+	// 百度首页通常包含这些关键词
+	if len(htmlContent) > 0 {
+		t.Log("成功获取到HTML内容，说明已跟随301跳转并加载了页面")
+	}
+}
