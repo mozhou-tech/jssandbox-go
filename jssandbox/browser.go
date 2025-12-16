@@ -3,6 +3,7 @@ package jssandbox
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -128,6 +129,12 @@ func (sb *Sandbox) registerBrowser() {
 			outputPath = call.Arguments[1].String()
 		}
 
+		// 可选的等待时间（秒）
+		waitSeconds := 0.0
+		if len(call.Arguments) > 2 {
+			waitSeconds = call.Arguments[2].ToFloat()
+		}
+
 		ctx, cancel := sb.createBrowserContext()
 		defer cancel()
 
@@ -135,12 +142,20 @@ func (sb *Sandbox) registerBrowser() {
 		defer cancel()
 
 		var buf []byte
-		err := chromedp.Run(ctx,
+		actions := []chromedp.Action{
 			chromedp.Navigate(url),
 			chromedp.WaitVisible("body", chromedp.ByQuery),
 			injectStealthScript(), // 在页面加载后注入反检测脚本
-			chromedp.CaptureScreenshot(&buf),
-		)
+		}
+
+		// 如果指定了等待时间，添加等待操作
+		if waitSeconds > 0 {
+			actions = append(actions, chromedp.Sleep(time.Duration(waitSeconds*float64(time.Second))))
+		}
+
+		actions = append(actions, chromedp.CaptureScreenshot(&buf))
+
+		err := chromedp.Run(ctx, actions...)
 
 		if err != nil {
 			sb.logger.Error("截图失败", zap.String("url", url), zap.Error(err))
@@ -150,12 +165,49 @@ func (sb *Sandbox) registerBrowser() {
 			})
 		}
 
+		// 检查截图数据是否为空
+		if len(buf) == 0 {
+			sb.logger.Error("截图数据为空", zap.String("url", url))
+			return sb.vm.ToValue(map[string]interface{}{
+				"success": false,
+				"error":   "截图数据为空",
+			})
+		}
+
+		// 确保输出目录存在
+		dir := filepath.Dir(outputPath)
+		if dir != "." && dir != "" {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				sb.logger.Error("创建目录失败", zap.String("dir", dir), zap.Error(err))
+				return sb.vm.ToValue(map[string]interface{}{
+					"success": false,
+					"error":   "创建目录失败: " + err.Error(),
+				})
+			}
+		}
+
 		// 保存截图
 		err = os.WriteFile(outputPath, buf, 0644)
 		if err != nil {
+			sb.logger.Error("保存截图文件失败", zap.String("path", outputPath), zap.Error(err))
 			return sb.vm.ToValue(map[string]interface{}{
 				"success": false,
-				"error":   err.Error(),
+				"error":   "保存文件失败: " + err.Error(),
+			})
+		}
+
+		// 验证文件是否真的被写入
+		if fileInfo, err := os.Stat(outputPath); err != nil {
+			sb.logger.Error("验证截图文件失败", zap.String("path", outputPath), zap.Error(err))
+			return sb.vm.ToValue(map[string]interface{}{
+				"success": false,
+				"error":   "文件写入后验证失败: " + err.Error(),
+			})
+		} else if fileInfo.Size() == 0 {
+			sb.logger.Error("截图文件大小为0", zap.String("path", outputPath))
+			return sb.vm.ToValue(map[string]interface{}{
+				"success": false,
+				"error":   "截图文件大小为0",
 			})
 		}
 
