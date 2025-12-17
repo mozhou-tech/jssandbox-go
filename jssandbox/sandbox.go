@@ -61,6 +61,8 @@ func (sb *Sandbox) registerExtensions() {
 	sb.registerImageProcessing()
 	// 注册文件类型检测功能
 	sb.registerFileTypeDetection()
+	// 注册视频处理功能
+	sb.registerVideoProcessing()
 }
 
 // Run 执行JavaScript代码
