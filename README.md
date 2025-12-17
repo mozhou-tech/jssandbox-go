@@ -2,7 +2,7 @@
 
 - ✅ **已实现** | ❌ **未实现** | 🚧 **部分实现**
 
-**实现进度**: 9/9 核心功能已实现 (100%) | 17/17 子功能已实现 (100%)
+**实现进度**: 10/10 核心功能已实现 (100%) | 26/26 子功能已实现 (100%)
 
 ### 核心功能
 
@@ -29,19 +29,29 @@
     5. ✅ 获取磁盘空间大小
 7. ✅ 作为go库可以引入到其他项目中去
 8. ✅ 集成disintegration/imaging库，可以进行图片处理
-   - 图片调整大小（imageResize）
-   - 图片裁剪（imageCrop）
-   - 图片旋转（imageRotate）
-   - 图片翻转（imageFlip）
-   - 获取图片信息（imageInfo）
-   - 转换图片格式（imageConvert）
-   - 调整图片质量（imageQuality）
+   - ✅ 图片调整大小（imageResize）
+   - ✅ 图片裁剪（imageCrop）
+   - ✅ 图片旋转（imageRotate）
+   - ✅ 图片翻转（imageFlip）
+   - ✅ 获取图片信息（imageInfo）
+   - ✅ 转换图片格式（imageConvert）
+   - ✅ 调整图片质量（imageQuality）
 9. ✅ 集成github.com/h2non/filetype库，可以进行文件类型检测
-   - 检测文件类型（detectFileType）
-   - 检测是否为图片（isImage）
-   - 检测是否为视频（isVideo）
-   - 检测是否为音频（isAudio）
-   - 检测是否为文档（isDocument）
-   - 检测是否为字体（isFont）
-   - 检测是否为归档文件（isArchive）
+   - ✅ 检测文件类型（detectFileType）
+   - ✅ 检测是否为图片（isImage）
+   - ✅ 检测是否为视频（isVideo）
+   - ✅ 检测是否为音频（isAudio）
+   - ✅ 检测是否为文档（isDocument）
+   - ✅ 检测是否为字体（isFont）
+   - ✅ 检测是否为归档文件（isArchive）
    - 注：getFileInfo函数已集成filetype库，优先使用二进制检测，失败时回退到扩展名判断
+10. ✅ 集成github.com/u2takey/ffmpeg-go库，可以进行视频处理
+   - ✅ 视频转码/转换格式（videoConvert）
+   - ✅ 视频裁剪-按时间（videoTrim）
+   - ✅ 视频裁剪-按尺寸和位置（videoCrop）
+   - ✅ 调整视频分辨率（videoResize）
+   - ✅ 提取音频（videoExtractAudio）
+   - ✅ 合并视频（videoConcat）
+   - ✅ 压缩视频（videoCompress）
+   - ✅ 获取视频信息（videoInfo）
+   - ✅ 添加水印（videoWatermark）

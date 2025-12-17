@@ -23,7 +23,8 @@ func (sb *Sandbox) registerHTTP() {
 		method := "GET"
 		headers := make(map[string]string)
 		body := ""
-		timeout := 30
+		// 使用配置中的默认超时时间（秒）
+		timeout := int(sb.config.HTTPTimeout.Seconds())
 
 		if len(call.Arguments) > 1 {
 			options := call.Arguments[1].ToObject(sb.vm)

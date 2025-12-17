@@ -14,10 +14,16 @@ type Sandbox struct {
 	vm     *goja.Runtime
 	logger *zap.Logger
 	ctx    context.Context
+	config *Config
 }
 
-// NewSandbox 创建一个新的沙盒实例
+// NewSandbox 创建一个新的沙盒实例（使用默认配置）
 func NewSandbox(ctx context.Context) *Sandbox {
+	return NewSandboxWithConfig(ctx, DefaultConfig())
+}
+
+// NewSandboxWithConfig 使用指定配置创建新的沙盒实例
+func NewSandboxWithConfig(ctx context.Context, config *Config) *Sandbox {
 	vm := goja.New()
 	logger, _ := zap.NewProduction()
 
@@ -25,6 +31,7 @@ func NewSandbox(ctx context.Context) *Sandbox {
 		vm:     vm,
 		logger: logger,
 		ctx:    ctx,
+		config: config,
 	}
 
 	// 注册所有扩展功能
@@ -33,36 +40,51 @@ func NewSandbox(ctx context.Context) *Sandbox {
 	return sb
 }
 
-// NewSandboxWithLogger 使用自定义logger创建沙盒
+// NewSandboxWithLogger 使用自定义logger创建沙盒（使用默认配置）
 func NewSandboxWithLogger(ctx context.Context, logger *zap.Logger) *Sandbox {
+	return NewSandboxWithLoggerAndConfig(ctx, logger, DefaultConfig())
+}
+
+// NewSandboxWithLoggerAndConfig 使用自定义logger和配置创建沙盒
+func NewSandboxWithLoggerAndConfig(ctx context.Context, logger *zap.Logger, config *Config) *Sandbox {
 	vm := goja.New()
 	sb := &Sandbox{
 		vm:     vm,
 		logger: logger,
 		ctx:    ctx,
+		config: config,
 	}
 	sb.registerExtensions()
 	return sb
 }
 
 // registerExtensions 注册所有扩展功能到JavaScript运行时
+// 根据配置选择性注册功能模块
 func (sb *Sandbox) registerExtensions() {
-	// 注册系统操作
+	// 注册系统操作（始终启用）
 	sb.registerSystemOps()
-	// 注册HTTP请求
-	sb.registerHTTP()
-	// 注册文件系统操作
-	sb.registerFileSystem()
-	// 注册浏览器操作
-	sb.registerBrowser()
-	// 注册文档读取功能
-	sb.registerDocuments()
-	// 注册图片处理功能
-	sb.registerImageProcessing()
-	// 注册文件类型检测功能
+
+	// 根据配置选择性注册功能
+	if sb.config.EnableHTTP {
+		sb.registerHTTP()
+	}
+	if sb.config.EnableFileSystem {
+		sb.registerFileSystem()
+	}
+	if sb.config.EnableBrowser {
+		sb.registerBrowser()
+	}
+	if sb.config.EnableDocuments {
+		sb.registerDocuments()
+	}
+	if sb.config.EnableImageProcessing {
+		sb.registerImageProcessing()
+	}
+	// 文件类型检测始终启用（文件系统功能依赖它）
 	sb.registerFileTypeDetection()
-	// 注册视频处理功能
-	sb.registerVideoProcessing()
+	if sb.config.EnableVideoProcessing {
+		sb.registerVideoProcessing()
+	}
 }
 
 // Run 执行JavaScript代码
@@ -71,7 +93,12 @@ func (sb *Sandbox) Run(code string) (goja.Value, error) {
 }
 
 // RunWithTimeout 在指定超时时间内执行JavaScript代码
+// 如果 timeout 为 0，则使用配置中的默认超时时间
 func (sb *Sandbox) RunWithTimeout(code string, timeout time.Duration) (goja.Value, error) {
+	if timeout == 0 {
+		timeout = sb.config.DefaultTimeout
+	}
+
 	ctx, cancel := context.WithTimeout(sb.ctx, timeout)
 	defer cancel()
 
@@ -86,9 +113,12 @@ func (sb *Sandbox) RunWithTimeout(code string, timeout time.Duration) (goja.Valu
 
 	select {
 	case <-ctx.Done():
-		return nil, fmt.Errorf("执行超时: %v", timeout)
+		return nil, NewSandboxError(ErrCodeTimeout, fmt.Sprintf("执行超时: %v", timeout))
 	case err := <-done:
-		return result, err
+		if err != nil {
+			return nil, NewSandboxErrorWithCause(ErrCodeUnknown, "执行JavaScript代码失败", err)
+		}
+		return result, nil
 	}
 }
 
