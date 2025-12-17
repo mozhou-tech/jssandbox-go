@@ -2,9 +2,54 @@
 
 ## 安装
 
+### 1. 安装 Go 依赖
+
 ```bash
 go mod download
 ```
+
+### 2. 安装系统依赖（如需要）
+
+#### ffmpeg（视频处理功能需要）
+
+如果使用视频处理功能（`videoConvert`, `videoTrim`, `videoCrop` 等），需要安装 ffmpeg：
+
+- **macOS:**
+  ```bash
+  brew install ffmpeg
+  ```
+
+- **Linux (Ubuntu/Debian):**
+  ```bash
+  sudo apt update && sudo apt install ffmpeg
+  ```
+
+- **Linux (CentOS/RHEL):**
+  ```bash
+  sudo yum install ffmpeg
+  # 或
+  sudo dnf install ffmpeg
+  ```
+
+- **Windows:**
+  - 从 [ffmpeg.org](https://ffmpeg.org/download.html) 下载
+  - 或使用 Chocolatey: `choco install ffmpeg`
+  - 或使用 Scoop: `scoop install ffmpeg`
+
+验证安装：
+```bash
+ffmpeg -version
+```
+
+> **提示：** 如果不需要视频处理功能，可以在创建沙盒时禁用：
+> ```go
+> config := jssandbox.DefaultConfig().DisableVideoProcessing()
+> sandbox := jssandbox.NewSandboxWithConfig(ctx, config)
+> ```
+
+#### Chrome/Chromium（浏览器功能需要）
+
+浏览器自动化功能（`browserNavigate`, `browserScreenshot` 等）需要 Chrome/Chromium。chromedp 会自动下载 Chrome，也可以使用系统已安装的 Chrome。
 
 ## 作为库使用
 

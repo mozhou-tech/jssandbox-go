@@ -1,3 +1,36 @@
+# JavaScript 沙盒 (jssandbox-go)
+
+一个基于 Go 和 goja 的 JavaScript 执行沙盒，提供丰富的扩展功能，包括文件系统操作、HTTP 请求、浏览器自动化、文档处理、图片处理和视频处理等。
+
+## 依赖要求
+
+### 必需依赖
+
+- **Go 1.21+** - 编程语言环境
+- **ffmpeg** - 用于视频处理功能（如果使用视频处理相关功能）
+
+  **安装方法：**
+  - macOS: `brew install ffmpeg`
+  - Linux (Ubuntu/Debian): `sudo apt update && sudo apt install ffmpeg`
+  - Linux (CentOS/RHEL): `sudo yum install ffmpeg` 或 `sudo dnf install ffmpeg`
+  - Windows: 从 [ffmpeg.org](https://ffmpeg.org/download.html) 下载，或使用 `choco install ffmpeg`
+
+  **验证安装：**
+  ```bash
+  ffmpeg -version
+  ```
+
+### 可选依赖
+
+- **Chrome/Chromium** - 用于浏览器自动化功能（如果使用浏览器相关功能）
+  - chromedp 会自动下载 Chrome，但也可以使用系统已安装的 Chrome
+
+> **注意：** 如果不需要视频处理功能，可以在创建沙盒时禁用：
+> ```go
+> config := jssandbox.DefaultConfig().DisableVideoProcessing()
+> sandbox := jssandbox.NewSandboxWithConfig(ctx, config)
+> ```
+
 ## 功能特性
 
 - ✅ **已实现** | ❌ **未实现** | 🚧 **部分实现**
