@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -11,6 +12,16 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.uber.org/zap"
 )
+
+// BrowserSession 表示一个浏览器会话，可以保持状态（如cookies）并执行多个连续操作
+type BrowserSession struct {
+	ctx     context.Context
+	cancel  context.CancelFunc
+	sb      *Sandbox
+	mu      sync.Mutex
+	closed  bool
+	timeout time.Duration
+}
 
 func init() {
 	// 设置 chromedp 使用的 logrus logger 级别为 Fatal，抑制解析错误和警告
@@ -85,248 +96,653 @@ func injectStealthScript() chromedp.Action {
 	return chromedp.Evaluate(stealthScript, nil)
 }
 
-// registerBrowser 注册浏览器操作功能到JavaScript运行时
-func (sb *Sandbox) registerBrowser() {
-	sb.vm.Set("browserNavigate", func(url string) goja.Value {
-		ctx, cancel := sb.createBrowserContext()
-		defer cancel()
+// createBrowserSession 创建一个新的浏览器会话，可以保持状态并执行多个连续操作
+func (sb *Sandbox) createBrowserSession(timeoutSeconds float64) *BrowserSession {
+	timeout := 30 * time.Second
+	if timeoutSeconds > 0 {
+		timeout = time.Duration(timeoutSeconds * float64(time.Second))
+	}
 
-		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
+	ctx, cancel := sb.createBrowserContext()
+	ctx, cancelTimeout := context.WithTimeout(ctx, timeout)
 
-		var html string
-		err := chromedp.Run(ctx,
-			chromedp.Navigate(url),
-			chromedp.WaitVisible("body", chromedp.ByQuery),
-			injectStealthScript(), // 在页面加载后注入反检测脚本
-			chromedp.OuterHTML("html", &html),
+	session := &BrowserSession{
+		ctx:     ctx,
+		cancel:  func() { cancelTimeout(); cancel() },
+		sb:      sb,
+		timeout: timeout,
+	}
+
+	// 初始化浏览器，注入反检测脚本
+	go func() {
+		_ = chromedp.Run(ctx, injectStealthScript())
+	}()
+
+	return session
+}
+
+// Close 关闭浏览器会话并清理资源
+func (bs *BrowserSession) Close() {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+	if !bs.closed {
+		bs.closed = true
+		bs.cancel()
+	}
+}
+
+// Navigate 导航到指定URL
+func (bs *BrowserSession) Navigate(url string) map[string]interface{} {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	if bs.closed {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "会话已关闭",
+		}
+	}
+
+	err := chromedp.Run(bs.ctx,
+		chromedp.Navigate(url),
+		chromedp.WaitVisible("body", chromedp.ByQuery),
+		injectStealthScript(),
+	)
+
+	if err != nil {
+		bs.sb.logger.Error("浏览器导航失败", zap.String("url", url), zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+	}
+
+	return map[string]interface{}{
+		"success": true,
+	}
+}
+
+// Wait 等待元素出现或等待指定时间
+func (bs *BrowserSession) Wait(selectorOrSeconds interface{}) map[string]interface{} {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	if bs.closed {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "会话已关闭",
+		}
+	}
+
+	var err error
+	switch v := selectorOrSeconds.(type) {
+	case string:
+		// 等待元素出现
+		err = chromedp.Run(bs.ctx,
+			chromedp.WaitVisible(v, chromedp.ByQuery),
 		)
+	case float64:
+		// 等待指定秒数
+		err = chromedp.Run(bs.ctx,
+			chromedp.Sleep(time.Duration(v*float64(time.Second))),
+		)
+	default:
+		return map[string]interface{}{
+			"success": false,
+			"error":   "参数类型错误，需要字符串（选择器）或数字（秒数）",
+		}
+	}
 
-		if err != nil {
-			sb.logger.Error("浏览器导航失败", zap.String("url", url), zap.Error(err))
-			return sb.vm.ToValue(map[string]interface{}{
+	if err != nil {
+		bs.sb.logger.Error("等待操作失败", zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+	}
+
+	return map[string]interface{}{
+		"success": true,
+	}
+}
+
+// Click 点击指定选择器的元素
+func (bs *BrowserSession) Click(selector string) map[string]interface{} {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	if bs.closed {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "会话已关闭",
+		}
+	}
+
+	err := chromedp.Run(bs.ctx,
+		chromedp.WaitVisible(selector, chromedp.ByQuery),
+		chromedp.Click(selector, chromedp.ByQuery),
+	)
+
+	if err != nil {
+		bs.sb.logger.Error("点击元素失败", zap.String("selector", selector), zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+	}
+
+	return map[string]interface{}{
+		"success": true,
+	}
+}
+
+// Fill 填充表单字段
+func (bs *BrowserSession) Fill(selector, value string) map[string]interface{} {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	if bs.closed {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "会话已关闭",
+		}
+	}
+
+	err := chromedp.Run(bs.ctx,
+		chromedp.WaitVisible(selector, chromedp.ByQuery),
+		chromedp.Clear(selector, chromedp.ByQuery),
+		chromedp.SendKeys(selector, value, chromedp.ByQuery),
+	)
+
+	if err != nil {
+		bs.sb.logger.Error("填充表单失败", zap.String("selector", selector), zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+	}
+
+	return map[string]interface{}{
+		"success": true,
+	}
+}
+
+// Evaluate 在页面中执行JavaScript代码
+func (bs *BrowserSession) Evaluate(jsCode string) map[string]interface{} {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	if bs.closed {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "会话已关闭",
+		}
+	}
+
+	var result interface{}
+	err := chromedp.Run(bs.ctx,
+		chromedp.Evaluate(jsCode, &result),
+	)
+
+	if err != nil {
+		bs.sb.logger.Error("执行浏览器脚本失败", zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+	}
+
+	return map[string]interface{}{
+		"success": true,
+		"result":  result,
+	}
+}
+
+// GetHTML 获取当前页面的HTML内容
+func (bs *BrowserSession) GetHTML() map[string]interface{} {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	if bs.closed {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "会话已关闭",
+		}
+	}
+
+	var html string
+	err := chromedp.Run(bs.ctx,
+		chromedp.OuterHTML("html", &html),
+	)
+
+	if err != nil {
+		bs.sb.logger.Error("获取HTML失败", zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+	}
+
+	return map[string]interface{}{
+		"success": true,
+		"html":    html,
+	}
+}
+
+// Screenshot 截取当前页面截图
+func (bs *BrowserSession) Screenshot(outputPath string) map[string]interface{} {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	if bs.closed {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "会话已关闭",
+		}
+	}
+
+	var buf []byte
+	err := chromedp.Run(bs.ctx,
+		chromedp.CaptureScreenshot(&buf),
+	)
+
+	if err != nil {
+		bs.sb.logger.Error("截图失败", zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+	}
+
+	// 检查截图数据是否为空
+	if len(buf) == 0 {
+		bs.sb.logger.Error("截图数据为空")
+		return map[string]interface{}{
+			"success": false,
+			"error":   "截图数据为空",
+		}
+	}
+
+	// 确保输出目录存在
+	dir := filepath.Dir(outputPath)
+	if dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			bs.sb.logger.Error("创建目录失败", zap.String("dir", dir), zap.Error(err))
+			return map[string]interface{}{
 				"success": false,
-				"error":   err.Error(),
-			})
+				"error":   "创建目录失败: " + err.Error(),
+			}
 		}
+	}
 
-		return sb.vm.ToValue(map[string]interface{}{
-			"success": true,
-			"html":    html,
-		})
-	})
-
-	sb.vm.Set("browserScreenshot", func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) < 1 {
-			return sb.vm.ToValue(map[string]interface{}{
-				"error": "需要提供URL参数",
-			})
+	// 保存截图
+	err = os.WriteFile(outputPath, buf, 0644)
+	if err != nil {
+		bs.sb.logger.Error("保存截图文件失败", zap.String("path", outputPath), zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   "保存文件失败: " + err.Error(),
 		}
+	}
 
-		url := call.Arguments[0].String()
-		outputPath := "screenshot.png"
-		if len(call.Arguments) > 1 {
-			outputPath = call.Arguments[1].String()
+	// 验证文件是否真的被写入
+	if fileInfo, err := os.Stat(outputPath); err != nil {
+		bs.sb.logger.Error("验证截图文件失败", zap.String("path", outputPath), zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   "文件写入后验证失败: " + err.Error(),
 		}
-
-		// 可选的等待时间（秒）
-		waitSeconds := 0.0
-		if len(call.Arguments) > 2 {
-			waitSeconds = call.Arguments[2].ToFloat()
+	} else if fileInfo.Size() == 0 {
+		bs.sb.logger.Error("截图文件大小为0", zap.String("path", outputPath))
+		return map[string]interface{}{
+			"success": false,
+			"error":   "截图文件大小为0",
 		}
+	}
 
-		ctx, cancel := sb.createBrowserContext()
-		defer cancel()
+	return map[string]interface{}{
+		"success": true,
+		"path":    outputPath,
+	}
+}
 
-		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
+// GetURL 获取当前页面的URL
+func (bs *BrowserSession) GetURL() map[string]interface{} {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
 
-		var buf []byte
-		actions := []chromedp.Action{
-			chromedp.Navigate(url),
-			chromedp.WaitVisible("body", chromedp.ByQuery),
-			injectStealthScript(), // 在页面加载后注入反检测脚本
+	if bs.closed {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "会话已关闭",
 		}
+	}
 
-		// 如果指定了等待时间，添加等待操作
-		if waitSeconds > 0 {
-			actions = append(actions, chromedp.Sleep(time.Duration(waitSeconds*float64(time.Second))))
+	var url string
+	err := chromedp.Run(bs.ctx,
+		chromedp.Location(&url),
+	)
+
+	if err != nil {
+		bs.sb.logger.Error("获取URL失败", zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
 		}
+	}
 
-		actions = append(actions, chromedp.CaptureScreenshot(&buf))
+	return map[string]interface{}{
+		"success": true,
+		"url":     url,
+	}
+}
 
-		err := chromedp.Run(ctx, actions...)
+// WaitForURL 等待URL包含指定文本或匹配指定模式
+func (bs *BrowserSession) WaitForURL(pattern string, timeoutSeconds float64) map[string]interface{} {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
 
-		if err != nil {
-			sb.logger.Error("截图失败", zap.String("url", url), zap.Error(err))
-			return sb.vm.ToValue(map[string]interface{}{
+	if bs.closed {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "会话已关闭",
+		}
+	}
+
+	timeout := 10 * time.Second
+	if timeoutSeconds > 0 {
+		timeout = time.Duration(timeoutSeconds * float64(time.Second))
+	}
+
+	ctx, cancel := context.WithTimeout(bs.ctx, timeout)
+	defer cancel()
+
+	startTime := time.Now()
+	var url string
+	for {
+		// 检查超时
+		if time.Since(startTime) > timeout {
+			return map[string]interface{}{
 				"success": false,
-				"error":   err.Error(),
-			})
-		}
-
-		// 检查截图数据是否为空
-		if len(buf) == 0 {
-			sb.logger.Error("截图数据为空", zap.String("url", url))
-			return sb.vm.ToValue(map[string]interface{}{
-				"success": false,
-				"error":   "截图数据为空",
-			})
-		}
-
-		// 确保输出目录存在
-		dir := filepath.Dir(outputPath)
-		if dir != "." && dir != "" {
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				sb.logger.Error("创建目录失败", zap.String("dir", dir), zap.Error(err))
-				return sb.vm.ToValue(map[string]interface{}{
-					"success": false,
-					"error":   "创建目录失败: " + err.Error(),
-				})
+				"error":   "等待URL超时",
+				"url":     url,
 			}
 		}
 
-		// 保存截图
-		err = os.WriteFile(outputPath, buf, 0644)
+		// 获取当前URL
+		err := chromedp.Run(ctx, chromedp.Location(&url))
 		if err != nil {
-			sb.logger.Error("保存截图文件失败", zap.String("path", outputPath), zap.Error(err))
-			return sb.vm.ToValue(map[string]interface{}{
-				"success": false,
-				"error":   "保存文件失败: " + err.Error(),
-			})
-		}
-
-		// 验证文件是否真的被写入
-		if fileInfo, err := os.Stat(outputPath); err != nil {
-			sb.logger.Error("验证截图文件失败", zap.String("path", outputPath), zap.Error(err))
-			return sb.vm.ToValue(map[string]interface{}{
-				"success": false,
-				"error":   "文件写入后验证失败: " + err.Error(),
-			})
-		} else if fileInfo.Size() == 0 {
-			sb.logger.Error("截图文件大小为0", zap.String("path", outputPath))
-			return sb.vm.ToValue(map[string]interface{}{
-				"success": false,
-				"error":   "截图文件大小为0",
-			})
-		}
-
-		return sb.vm.ToValue(map[string]interface{}{
-			"success": true,
-			"path":    outputPath,
-		})
-	})
-
-	sb.vm.Set("browserEvaluate", func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) < 2 {
-			return sb.vm.ToValue(map[string]interface{}{
-				"error": "需要提供URL和JavaScript代码",
-			})
-		}
-
-		url := call.Arguments[0].String()
-		jsCode := call.Arguments[1].String()
-
-		ctx, cancel := sb.createBrowserContext()
-		defer cancel()
-
-		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
-
-		var result interface{}
-		err := chromedp.Run(ctx,
-			chromedp.Navigate(url),
-			chromedp.WaitVisible("body", chromedp.ByQuery),
-			injectStealthScript(), // 在页面加载后注入反检测脚本
-			chromedp.Evaluate(jsCode, &result),
-		)
-
-		if err != nil {
-			sb.logger.Error("执行浏览器脚本失败", zap.String("url", url), zap.Error(err))
-			return sb.vm.ToValue(map[string]interface{}{
+			return map[string]interface{}{
 				"success": false,
 				"error":   err.Error(),
-			})
+			}
 		}
 
-		return sb.vm.ToValue(map[string]interface{}{
-			"success": true,
-			"result":  result,
-		})
-	})
-
-	sb.vm.Set("browserClick", func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) < 2 {
-			return sb.vm.ToValue(map[string]interface{}{
-				"error": "需要提供URL和选择器",
-			})
+		// 检查URL是否包含模式
+		if len(url) > 0 && len(pattern) > 0 {
+			// 使用简单的字符串包含检查
+			matched := false
+			for i := 0; i <= len(url)-len(pattern); i++ {
+				if url[i:i+len(pattern)] == pattern {
+					matched = true
+					break
+				}
+			}
+			if matched {
+				return map[string]interface{}{
+					"success": true,
+					"url":     url,
+				}
+			}
 		}
 
-		url := call.Arguments[0].String()
-		selector := call.Arguments[1].String()
+		// 等待一小段时间后重试
+		time.Sleep(100 * time.Millisecond)
+	}
+}
 
-		ctx, cancel := sb.createBrowserContext()
-		defer cancel()
+// WaitForText 等待页面中出现指定文本
+func (bs *BrowserSession) WaitForText(text string, timeoutSeconds float64) map[string]interface{} {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
 
-		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
+	if bs.closed {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "会话已关闭",
+		}
+	}
 
-		err := chromedp.Run(ctx,
-			chromedp.Navigate(url),
-			chromedp.WaitVisible("body", chromedp.ByQuery),
-			injectStealthScript(), // 在页面加载后注入反检测脚本
+	timeout := 10 * time.Second
+	if timeoutSeconds > 0 {
+		timeout = time.Duration(timeoutSeconds * float64(time.Second))
+	}
+
+	ctx, cancel := context.WithTimeout(bs.ctx, timeout)
+	defer cancel()
+
+	// 转义文本中的单引号，避免JavaScript注入
+	escapedText := ""
+	for _, r := range text {
+		if r == '\'' {
+			escapedText += "\\'"
+		} else if r == '\\' {
+			escapedText += "\\\\"
+		} else {
+			escapedText += string(r)
+		}
+	}
+	jsCode := `document.body && document.body.innerText && document.body.innerText.includes('` + escapedText + `')`
+
+	startTime := time.Now()
+	for {
+		// 检查超时
+		if time.Since(startTime) > timeout {
+			return map[string]interface{}{
+				"success": false,
+				"error":   "等待文本超时: " + text,
+			}
+		}
+
+		// 执行JavaScript检查文本是否存在
+		var result bool
+		err := chromedp.Run(ctx, chromedp.Evaluate(jsCode, &result))
+		if err != nil {
+			// 如果页面还没加载完成，继续等待
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+
+		if result {
+			return map[string]interface{}{
+				"success": true,
+			}
+		}
+
+		// 等待一小段时间后重试
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// Clear 清空指定输入框的内容
+func (bs *BrowserSession) Clear(selector string) map[string]interface{} {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	if bs.closed {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "会话已关闭",
+		}
+	}
+
+	err := chromedp.Run(bs.ctx,
+		chromedp.WaitVisible(selector, chromedp.ByQuery),
+		chromedp.Clear(selector, chromedp.ByQuery),
+	)
+
+	if err != nil {
+		bs.sb.logger.Error("清空输入框失败", zap.String("selector", selector), zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+	}
+
+	return map[string]interface{}{
+		"success": true,
+	}
+}
+
+// Submit 提交表单（通过点击提交按钮或按Enter键）
+func (bs *BrowserSession) Submit(selector string) map[string]interface{} {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	if bs.closed {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "会话已关闭",
+		}
+	}
+
+	// 如果selector为空，尝试提交当前表单（通过JavaScript模拟Enter键）
+	if selector == "" {
+		jsCode := `
+			var event = new KeyboardEvent('keydown', {
+				key: 'Enter',
+				code: 'Enter',
+				keyCode: 13,
+				which: 13,
+				bubbles: true
+			});
+			document.activeElement && document.activeElement.dispatchEvent(event);
+		`
+		err := chromedp.Run(bs.ctx,
+			chromedp.Evaluate(jsCode, nil),
+		)
+		if err != nil {
+			bs.sb.logger.Error("提交表单失败", zap.Error(err))
+			return map[string]interface{}{
+				"success": false,
+				"error":   err.Error(),
+			}
+		}
+	} else {
+		// 点击提交按钮
+		err := chromedp.Run(bs.ctx,
 			chromedp.WaitVisible(selector, chromedp.ByQuery),
 			chromedp.Click(selector, chromedp.ByQuery),
 		)
-
 		if err != nil {
-			sb.logger.Error("点击元素失败", zap.String("url", url), zap.String("selector", selector), zap.Error(err))
-			return sb.vm.ToValue(map[string]interface{}{
+			bs.sb.logger.Error("点击提交按钮失败", zap.String("selector", selector), zap.Error(err))
+			return map[string]interface{}{
 				"success": false,
 				"error":   err.Error(),
-			})
+			}
+		}
+	}
+
+	return map[string]interface{}{
+		"success": true,
+	}
+}
+
+// registerBrowser 注册浏览器操作功能到JavaScript运行时
+func (sb *Sandbox) registerBrowser() {
+	// 注册浏览器会话管理功能
+	sb.vm.Set("createBrowserSession", func(call goja.FunctionCall) goja.Value {
+		timeoutSeconds := 30.0
+		if len(call.Arguments) > 0 {
+			timeoutSeconds = call.Arguments[0].ToFloat()
 		}
 
-		return sb.vm.ToValue(map[string]interface{}{
-			"success": true,
+		session := sb.createBrowserSession(timeoutSeconds)
+
+		// 创建一个JavaScript对象来表示会话
+		sessionObj := sb.vm.NewObject()
+		sessionObj.Set("navigate", func(url string) goja.Value {
+			result := session.Navigate(url)
+			return sb.vm.ToValue(result)
 		})
-	})
-
-	sb.vm.Set("browserFill", func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) < 3 {
-			return sb.vm.ToValue(map[string]interface{}{
-				"error": "需要提供URL、选择器和值",
-			})
-		}
-
-		url := call.Arguments[0].String()
-		selector := call.Arguments[1].String()
-		value := call.Arguments[2].String()
-
-		ctx, cancel := sb.createBrowserContext()
-		defer cancel()
-
-		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
-
-		err := chromedp.Run(ctx,
-			chromedp.Navigate(url),
-			chromedp.WaitVisible("body", chromedp.ByQuery),
-			injectStealthScript(), // 在页面加载后注入反检测脚本
-			chromedp.WaitVisible(selector, chromedp.ByQuery),
-			chromedp.SendKeys(selector, value, chromedp.ByQuery),
-		)
-
-		if err != nil {
-			sb.logger.Error("填充表单失败", zap.String("url", url), zap.String("selector", selector), zap.Error(err))
-			return sb.vm.ToValue(map[string]interface{}{
-				"success": false,
-				"error":   err.Error(),
-			})
-		}
-
-		return sb.vm.ToValue(map[string]interface{}{
-			"success": true,
+		sessionObj.Set("wait", func(selectorOrSeconds goja.Value) goja.Value {
+			var arg interface{}
+			if selectorOrSeconds != nil && !goja.IsUndefined(selectorOrSeconds) {
+				if selectorOrSeconds.ExportType().Kind().String() == "string" {
+					arg = selectorOrSeconds.String()
+				} else {
+					arg = selectorOrSeconds.ToFloat()
+				}
+			}
+			result := session.Wait(arg)
+			return sb.vm.ToValue(result)
 		})
+		sessionObj.Set("click", func(selector string) goja.Value {
+			result := session.Click(selector)
+			return sb.vm.ToValue(result)
+		})
+		sessionObj.Set("fill", func(selector, value string) goja.Value {
+			result := session.Fill(selector, value)
+			return sb.vm.ToValue(result)
+		})
+		sessionObj.Set("evaluate", func(jsCode string) goja.Value {
+			result := session.Evaluate(jsCode)
+			return sb.vm.ToValue(result)
+		})
+		sessionObj.Set("getHTML", func() goja.Value {
+			result := session.GetHTML()
+			return sb.vm.ToValue(result)
+		})
+		sessionObj.Set("screenshot", func(outputPath string) goja.Value {
+			result := session.Screenshot(outputPath)
+			return sb.vm.ToValue(result)
+		})
+		sessionObj.Set("getURL", func() goja.Value {
+			result := session.GetURL()
+			return sb.vm.ToValue(result)
+		})
+		sessionObj.Set("waitForURL", func(call goja.FunctionCall) goja.Value {
+			if len(call.Arguments) < 1 {
+				return sb.vm.ToValue(map[string]interface{}{
+					"success": false,
+					"error":   "需要提供URL模式参数",
+				})
+			}
+			pattern := call.Arguments[0].String()
+			timeoutSeconds := 10.0
+			if len(call.Arguments) > 1 {
+				timeoutSeconds = call.Arguments[1].ToFloat()
+			}
+			result := session.WaitForURL(pattern, timeoutSeconds)
+			return sb.vm.ToValue(result)
+		})
+		sessionObj.Set("waitForText", func(call goja.FunctionCall) goja.Value {
+			if len(call.Arguments) < 1 {
+				return sb.vm.ToValue(map[string]interface{}{
+					"success": false,
+					"error":   "需要提供文本参数",
+				})
+			}
+			text := call.Arguments[0].String()
+			timeoutSeconds := 10.0
+			if len(call.Arguments) > 1 {
+				timeoutSeconds = call.Arguments[1].ToFloat()
+			}
+			result := session.WaitForText(text, timeoutSeconds)
+			return sb.vm.ToValue(result)
+		})
+		sessionObj.Set("clear", func(selector string) goja.Value {
+			result := session.Clear(selector)
+			return sb.vm.ToValue(result)
+		})
+		sessionObj.Set("submit", func(selector string) goja.Value {
+			result := session.Submit(selector)
+			return sb.vm.ToValue(result)
+		})
+		sessionObj.Set("close", func() {
+			session.Close()
+		})
+
+		return sessionObj
 	})
 }

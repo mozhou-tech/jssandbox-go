@@ -10,7 +10,7 @@ import (
 	"github.com/dop251/goja"
 )
 
-func TestBrowserNavigate(t *testing.T) {
+func TestBrowserSession_Navigate(t *testing.T) {
 	// 注意：这个测试需要Chrome/Chromium可用
 	// 如果环境中没有Chrome，测试可能会失败
 	if os.Getenv("SKIP_BROWSER_TESTS") == "true" {
@@ -22,37 +22,43 @@ func TestBrowserNavigate(t *testing.T) {
 	defer sb.Close()
 
 	code := `
-		var result = browserNavigate("https://www.example.com");
-		result;
+		var session = createBrowserSession(30);
+		var result = session.navigate("https://www.example.com");
+		if (!result.success) {
+			throw new Error("导航失败: " + result.error);
+		}
+		var htmlResult = session.getHTML();
+		session.close();
+		htmlResult;
 	`
 
 	result, err := sb.Run(code)
 	if err != nil {
-		t.Logf("browserNavigate()可能需要Chrome环境，跳过: %v", err)
+		t.Logf("浏览器会话测试可能需要Chrome环境，跳过: %v", err)
 		t.Skip("浏览器测试需要Chrome环境")
 		return
 	}
 
 	resultObj := result.ToObject(sb.vm)
 	if resultObj == nil {
-		t.Fatal("browserNavigate()返回的对象为nil")
+		t.Fatal("getHTML()返回的对象为nil")
 	}
 
 	success := resultObj.Get("success")
 	if success == nil || goja.IsUndefined(success) {
-		t.Error("browserNavigate()缺少success字段")
+		t.Error("getHTML()缺少success字段")
 	}
 
 	// 如果成功，验证HTML字段
 	if success.ToBoolean() {
 		html := resultObj.Get("html")
 		if html == nil || goja.IsUndefined(html) {
-			t.Error("browserNavigate()成功时应该包含html字段")
+			t.Error("getHTML()成功时应该包含html字段")
 		}
 	}
 }
 
-func TestBrowserScreenshot(t *testing.T) {
+func TestBrowserSession_Screenshot(t *testing.T) {
 	if os.Getenv("SKIP_BROWSER_TESTS") == "true" {
 		t.Skip("跳过浏览器测试（SKIP_BROWSER_TESTS=true）")
 	}
@@ -65,20 +71,26 @@ func TestBrowserScreenshot(t *testing.T) {
 	outputPath := testDir + "/screenshot.png"
 
 	code := `
-		var result = browserScreenshot("https://www.example.com", "` + outputPath + `");
+		var session = createBrowserSession(30);
+		var navResult = session.navigate("https://www.example.com");
+		if (!navResult.success) {
+			throw new Error("导航失败: " + navResult.error);
+		}
+		var result = session.screenshot("` + outputPath + `");
+		session.close();
 		result;
 	`
 
 	result, err := sb.Run(code)
 	if err != nil {
-		t.Logf("browserScreenshot()可能需要Chrome环境，跳过: %v", err)
+		t.Logf("浏览器会话测试可能需要Chrome环境，跳过: %v", err)
 		t.Skip("浏览器测试需要Chrome环境")
 		return
 	}
 
 	resultObj := result.ToObject(sb.vm)
 	if resultObj == nil {
-		t.Fatal("browserScreenshot()返回的对象为nil")
+		t.Fatal("screenshot()返回的对象为nil")
 	}
 
 	success := resultObj.Get("success")
@@ -87,13 +99,13 @@ func TestBrowserScreenshot(t *testing.T) {
 		path := resultObj.Get("path")
 		if path != nil && !goja.IsUndefined(path) {
 			if _, err := os.Stat(path.String()); os.IsNotExist(err) {
-				t.Error("browserScreenshot()截图文件不存在")
+				t.Error("screenshot()截图文件不存在")
 			}
 		}
 	}
 }
 
-func TestBrowserEvaluate(t *testing.T) {
+func TestBrowserSession_Evaluate(t *testing.T) {
 	if os.Getenv("SKIP_BROWSER_TESTS") == "true" {
 		t.Skip("跳过浏览器测试（SKIP_BROWSER_TESTS=true）")
 	}
@@ -103,32 +115,38 @@ func TestBrowserEvaluate(t *testing.T) {
 	defer sb.Close()
 
 	code := `
-		var result = browserEvaluate("https://www.example.com", "document.title");
+		var session = createBrowserSession(30);
+		var navResult = session.navigate("https://www.example.com");
+		if (!navResult.success) {
+			throw new Error("导航失败: " + navResult.error);
+		}
+		var result = session.evaluate("document.title");
+		session.close();
 		result;
 	`
 
 	result, err := sb.Run(code)
 	if err != nil {
-		t.Logf("browserEvaluate()可能需要Chrome环境，跳过: %v", err)
+		t.Logf("浏览器会话测试可能需要Chrome环境，跳过: %v", err)
 		t.Skip("浏览器测试需要Chrome环境")
 		return
 	}
 
 	resultObj := result.ToObject(sb.vm)
 	if resultObj == nil {
-		t.Fatal("browserEvaluate()返回的对象为nil")
+		t.Fatal("evaluate()返回的对象为nil")
 	}
 
 	success := resultObj.Get("success")
 	if success != nil && success.ToBoolean() {
 		resultVal := resultObj.Get("result")
 		if resultVal == nil || goja.IsUndefined(resultVal) {
-			t.Error("browserEvaluate()成功时应该包含result字段")
+			t.Error("evaluate()成功时应该包含result字段")
 		}
 	}
 }
 
-func TestBrowserClick(t *testing.T) {
+func TestBrowserSession_Click(t *testing.T) {
 	if os.Getenv("SKIP_BROWSER_TESTS") == "true" {
 		t.Skip("跳过浏览器测试（SKIP_BROWSER_TESTS=true）")
 	}
@@ -138,30 +156,36 @@ func TestBrowserClick(t *testing.T) {
 	defer sb.Close()
 
 	code := `
-		var result = browserClick("https://www.example.com", "body");
+		var session = createBrowserSession(30);
+		var navResult = session.navigate("https://www.example.com");
+		if (!navResult.success) {
+			throw new Error("导航失败: " + navResult.error);
+		}
+		var result = session.click("body");
+		session.close();
 		result;
 	`
 
 	result, err := sb.Run(code)
 	if err != nil {
-		t.Logf("browserClick()可能需要Chrome环境，跳过: %v", err)
+		t.Logf("浏览器会话测试可能需要Chrome环境，跳过: %v", err)
 		t.Skip("浏览器测试需要Chrome环境")
 		return
 	}
 
 	resultObj := result.ToObject(sb.vm)
 	if resultObj == nil {
-		t.Fatal("browserClick()返回的对象为nil")
+		t.Fatal("click()返回的对象为nil")
 	}
 
 	// 验证返回结果结构
 	success := resultObj.Get("success")
 	if success == nil || goja.IsUndefined(success) {
-		t.Error("browserClick()缺少success字段")
+		t.Error("click()缺少success字段")
 	}
 }
 
-func TestBrowserFill(t *testing.T) {
+func TestBrowserSession_Fill(t *testing.T) {
 	if os.Getenv("SKIP_BROWSER_TESTS") == "true" {
 		t.Skip("跳过浏览器测试（SKIP_BROWSER_TESTS=true）")
 	}
@@ -171,70 +195,196 @@ func TestBrowserFill(t *testing.T) {
 	defer sb.Close()
 
 	code := `
-		var result = browserFill("https://www.example.com", "body", "test value");
+		var session = createBrowserSession(30);
+		var navResult = session.navigate("https://www.example.com");
+		if (!navResult.success) {
+			throw new Error("导航失败: " + navResult.error);
+		}
+		// 尝试填充body元素（虽然body不是输入框，但可以测试API是否正常工作）
+		var result = session.fill("body", "test value");
+		session.close();
 		result;
 	`
 
 	result, err := sb.Run(code)
 	if err != nil {
-		t.Logf("browserFill()可能需要Chrome环境，跳过: %v", err)
+		t.Logf("浏览器会话测试可能需要Chrome环境，跳过: %v", err)
 		t.Skip("浏览器测试需要Chrome环境")
 		return
 	}
 
 	resultObj := result.ToObject(sb.vm)
 	if resultObj == nil {
-		t.Fatal("browserFill()返回的对象为nil")
+		t.Fatal("fill()返回的对象为nil")
 	}
 
 	success := resultObj.Get("success")
 	if success == nil || goja.IsUndefined(success) {
-		t.Error("browserFill()缺少success字段")
+		t.Error("fill()缺少success字段")
 	}
 }
 
-func TestBrowser_ErrorHandling(t *testing.T) {
+func TestBrowserSession_Wait(t *testing.T) {
+	if os.Getenv("SKIP_BROWSER_TESTS") == "true" {
+		t.Skip("跳过浏览器测试（SKIP_BROWSER_TESTS=true）")
+	}
+
 	ctx := context.Background()
 	sb := NewSandbox(ctx)
 	defer sb.Close()
 
-	t.Run("browserNavigate缺少参数", func(t *testing.T) {
-		// browserNavigate需要URL参数，但这里测试的是函数调用本身
-		// 由于函数定义需要参数，这个测试主要验证函数存在
-		_, err := sb.Run("typeof browserNavigate")
+	// 测试等待元素
+	code := `
+		var session = createBrowserSession(30);
+		var navResult = session.navigate("https://www.example.com");
+		if (!navResult.success) {
+			throw new Error("导航失败: " + navResult.error);
+		}
+		var result = session.wait("body");
+		session.close();
+		result;
+	`
+
+	result, err := sb.Run(code)
+	if err != nil {
+		t.Logf("浏览器会话测试可能需要Chrome环境，跳过: %v", err)
+		t.Skip("浏览器测试需要Chrome环境")
+		return
+	}
+
+	resultObj := result.ToObject(sb.vm)
+	if resultObj == nil {
+		t.Fatal("wait()返回的对象为nil")
+	}
+
+	success := resultObj.Get("success")
+	if success == nil || goja.IsUndefined(success) {
+		t.Error("wait()缺少success字段")
+	}
+
+	// 测试等待时间
+	code2 := `
+		var session = createBrowserSession(30);
+		var navResult = session.navigate("https://www.example.com");
+		if (!navResult.success) {
+			throw new Error("导航失败: " + navResult.error);
+		}
+		var result = session.wait(0.5); // 等待0.5秒
+		session.close();
+		result;
+	`
+
+	result2, err := sb.Run(code2)
+	if err != nil {
+		t.Logf("等待时间测试可能需要Chrome环境，跳过: %v", err)
+		return
+	}
+
+	resultObj2 := result2.ToObject(sb.vm)
+	if resultObj2 == nil {
+		t.Fatal("wait()返回的对象为nil")
+	}
+
+	success2 := resultObj2.Get("success")
+	if success2 == nil || goja.IsUndefined(success2) {
+		t.Error("wait()等待时间缺少success字段")
+	}
+}
+
+func TestBrowserSession_GetURL(t *testing.T) {
+	if os.Getenv("SKIP_BROWSER_TESTS") == "true" {
+		t.Skip("跳过浏览器测试（SKIP_BROWSER_TESTS=true）")
+	}
+
+	ctx := context.Background()
+	sb := NewSandbox(ctx)
+	defer sb.Close()
+
+	code := `
+		var session = createBrowserSession(30);
+		var navResult = session.navigate("https://www.example.com");
+		if (!navResult.success) {
+			throw new Error("导航失败: " + navResult.error);
+		}
+		var result = session.getURL();
+		session.close();
+		result;
+	`
+
+	result, err := sb.Run(code)
+	if err != nil {
+		t.Logf("浏览器会话测试可能需要Chrome环境，跳过: %v", err)
+		t.Skip("浏览器测试需要Chrome环境")
+		return
+	}
+
+	resultObj := result.ToObject(sb.vm)
+	if resultObj == nil {
+		t.Fatal("getURL()返回的对象为nil")
+	}
+
+	success := resultObj.Get("success")
+	if success == nil || goja.IsUndefined(success) {
+		t.Error("getURL()缺少success字段")
+	}
+
+	if success.ToBoolean() {
+		url := resultObj.Get("url")
+		if url == nil || goja.IsUndefined(url) {
+			t.Error("getURL()成功时应该包含url字段")
+		} else {
+			urlStr := url.String()
+			if urlStr == "" {
+				t.Error("getURL()返回的URL为空")
+			}
+			t.Logf("获取到的URL: %s", urlStr)
+		}
+	}
+}
+
+func TestBrowserSession_ErrorHandling(t *testing.T) {
+	ctx := context.Background()
+	sb := NewSandbox(ctx)
+	defer sb.Close()
+
+	t.Run("createBrowserSession函数存在", func(t *testing.T) {
+		_, err := sb.Run("typeof createBrowserSession")
 		if err != nil {
-			t.Errorf("browserNavigate函数未定义: %v", err)
+			t.Errorf("createBrowserSession函数未定义: %v", err)
 		}
 	})
 
-	t.Run("browserScreenshot缺少参数", func(t *testing.T) {
-		result, err := sb.Run("browserScreenshot()")
+	t.Run("会话关闭后操作应返回错误", func(t *testing.T) {
+		code := `
+			var session = createBrowserSession(30);
+			session.close();
+			var result = session.navigate("https://www.example.com");
+			result;
+		`
+
+		result, err := sb.Run(code)
 		if err != nil {
-			t.Fatalf("browserScreenshot() error = %v", err)
+			t.Fatalf("执行代码失败: %v", err)
 		}
 
 		resultObj := result.ToObject(sb.vm)
-		errorVal := resultObj.Get("error")
-		if errorVal == nil || goja.IsUndefined(errorVal) {
-			t.Error("browserScreenshot()缺少参数应该返回错误")
-		}
-	})
-
-	t.Run("browserEvaluate缺少参数", func(t *testing.T) {
-		result, err := sb.Run("browserEvaluate()")
-		if err != nil {
-			t.Fatalf("browserEvaluate() error = %v", err)
+		if resultObj == nil {
+			t.Fatal("返回的对象为nil")
 		}
 
-		resultObj := result.ToObject(sb.vm)
+		success := resultObj.Get("success")
+		if success != nil && success.ToBoolean() {
+			t.Error("关闭后的会话操作应该失败")
+		}
+
 		errorVal := resultObj.Get("error")
 		if errorVal == nil || goja.IsUndefined(errorVal) {
-			t.Error("browserEvaluate()缺少参数应该返回错误")
+			t.Error("关闭后的会话操作应该返回错误")
 		}
 	})
 }
 
-func TestBrowserNavigateBaiduWithRedirect(t *testing.T) {
+func TestBrowserSession_NavigateBaiduWithRedirect(t *testing.T) {
 	// 测试获取百度首页并跟随301跳转
 	if os.Getenv("SKIP_BROWSER_TESTS") == "true" {
 		t.Skip("跳过浏览器测试（SKIP_BROWSER_TESTS=true）")
@@ -245,39 +395,45 @@ func TestBrowserNavigateBaiduWithRedirect(t *testing.T) {
 	defer sb.Close()
 
 	code := `
-		var result = browserNavigate("https://www.baidu.com");
-		result;
+		var session = createBrowserSession(60);
+		var navResult = session.navigate("https://www.baidu.com");
+		if (!navResult.success) {
+			throw new Error("导航失败: " + navResult.error);
+		}
+		var htmlResult = session.getHTML();
+		session.close();
+		htmlResult;
 	`
 
 	result, err := sb.Run(code)
 	if err != nil {
-		t.Logf("browserNavigate()可能需要Chrome环境，跳过: %v", err)
+		t.Logf("浏览器会话测试可能需要Chrome环境，跳过: %v", err)
 		t.Skip("浏览器测试需要Chrome环境")
 		return
 	}
 
 	resultObj := result.ToObject(sb.vm)
 	if resultObj == nil {
-		t.Fatal("browserNavigate()返回的对象为nil")
+		t.Fatal("getHTML()返回的对象为nil")
 	}
 
 	success := resultObj.Get("success")
 	if success == nil || goja.IsUndefined(success) {
-		t.Fatal("browserNavigate()缺少success字段")
+		t.Fatal("getHTML()缺少success字段")
 	}
 
 	if !success.ToBoolean() {
 		errorVal := resultObj.Get("error")
 		if errorVal != nil && !goja.IsUndefined(errorVal) {
-			t.Fatalf("browserNavigate()失败: %v", errorVal.String())
+			t.Fatalf("getHTML()失败: %v", errorVal.String())
 		}
-		t.Fatal("browserNavigate()失败，但未返回错误信息")
+		t.Fatal("getHTML()失败，但未返回错误信息")
 	}
 
 	// 获取并打印HTML内容
 	html := resultObj.Get("html")
 	if html == nil || goja.IsUndefined(html) {
-		t.Fatal("browserNavigate()成功时应该包含html字段")
+		t.Fatal("getHTML()成功时应该包含html字段")
 	}
 
 	htmlContent := html.String()
@@ -302,7 +458,119 @@ func TestBrowserNavigateBaiduWithRedirect(t *testing.T) {
 	}
 }
 
-func TestBrowserScanBotDetection(t *testing.T) {
+func TestBrowserSession_ComplexWorkflow(t *testing.T) {
+	// 测试复杂的连续操作流程：导航、等待、获取HTML、截图
+	if os.Getenv("SKIP_BROWSER_TESTS") == "true" {
+		t.Skip("跳过浏览器测试（SKIP_BROWSER_TESTS=true）")
+	}
+
+	ctx := context.Background()
+	sb := NewSandbox(ctx)
+	defer sb.Close()
+
+	testDir := t.TempDir()
+	outputPath := testDir + "/workflow-screenshot.png"
+
+	code := `
+		var session = createBrowserSession(60);
+		
+		// 1. 导航到页面
+		var navResult = session.navigate("https://www.example.com");
+		if (!navResult.success) {
+			session.close();
+			throw new Error("导航失败: " + navResult.error);
+		}
+		
+		// 2. 等待body元素
+		var waitResult = session.wait("body");
+		if (!waitResult.success) {
+			session.close();
+			throw new Error("等待失败: " + waitResult.error);
+		}
+		
+		// 3. 获取URL
+		var urlResult = session.getURL();
+		if (!urlResult.success) {
+			session.close();
+			throw new Error("获取URL失败: " + urlResult.error);
+		}
+		
+		// 4. 执行JavaScript
+		var evalResult = session.evaluate("document.title");
+		if (!evalResult.success) {
+			session.close();
+			throw new Error("执行脚本失败: " + evalResult.error);
+		}
+		
+		// 5. 截图
+		var screenshotResult = session.screenshot("` + outputPath + `");
+		if (!screenshotResult.success) {
+			session.close();
+			throw new Error("截图失败: " + screenshotResult.error);
+		}
+		
+		// 6. 获取HTML
+		var htmlResult = session.getHTML();
+		
+		// 7. 关闭会话
+		session.close();
+		
+		// 返回所有结果
+		{
+			url: urlResult.url,
+			title: evalResult.result,
+			screenshot: screenshotResult.path,
+			htmlLength: htmlResult.html ? htmlResult.html.length : 0
+		};
+	`
+
+	result, err := sb.Run(code)
+	if err != nil {
+		t.Logf("复杂工作流测试可能需要Chrome环境，跳过: %v", err)
+		t.Skip("浏览器测试需要Chrome环境")
+		return
+	}
+
+	resultObj := result.ToObject(sb.vm)
+	if resultObj == nil {
+		t.Fatal("工作流测试返回的对象为nil")
+	}
+
+	// 验证返回的各个字段
+	url := resultObj.Get("url")
+	if url == nil || goja.IsUndefined(url) {
+		t.Error("工作流测试应该返回URL")
+	} else {
+		t.Logf("工作流测试获取到的URL: %s", url.String())
+	}
+
+	title := resultObj.Get("title")
+	if title == nil || goja.IsUndefined(title) {
+		t.Error("工作流测试应该返回标题")
+	} else {
+		t.Logf("工作流测试获取到的标题: %s", title.String())
+	}
+
+	screenshotPath := resultObj.Get("screenshot")
+	if screenshotPath != nil && !goja.IsUndefined(screenshotPath) {
+		pathStr := screenshotPath.String()
+		if _, err := os.Stat(pathStr); os.IsNotExist(err) {
+			t.Errorf("工作流测试截图文件不存在: %s", pathStr)
+		} else {
+			t.Logf("工作流测试截图已保存: %s", pathStr)
+		}
+	}
+
+	htmlLength := resultObj.Get("htmlLength")
+	if htmlLength != nil && !goja.IsUndefined(htmlLength) {
+		length := htmlLength.ToFloat()
+		if length > 0 {
+			t.Logf("工作流测试获取到的HTML长度: %.0f 字符", length)
+		}
+	}
+}
+
+func TestBrowserSession_BotDetection(t *testing.T) {
 	// 测试访问 browserscan.net 的机器人检测页面，等待8秒后截图
 	if os.Getenv("SKIP_BROWSER_TESTS") == "true" {
 		t.Skip("跳过浏览器测试（SKIP_BROWSER_TESTS=true）")
@@ -316,33 +584,46 @@ func TestBrowserScanBotDetection(t *testing.T) {
 	outputPath := testDir + "/bot-detection-screenshot.png"
 
 	code := `
-		var result = browserScreenshot("https://www.browserscan.net/tc/bot-detection", "` + outputPath + `", 8);
+		var session = createBrowserSession(60);
+		var navResult = session.navigate("https://www.browserscan.net/tc/bot-detection");
+		if (!navResult.success) {
+			session.close();
+			throw new Error("导航失败: " + navResult.error);
+		}
+		// 等待8秒
+		var waitResult = session.wait(8);
+		if (!waitResult.success) {
+			session.close();
+			throw new Error("等待失败: " + waitResult.error);
+		}
+		var result = session.screenshot("` + outputPath + `");
+		session.close();
 		result;
 	`
 
 	result, err := sb.Run(code)
 	if err != nil {
-		t.Logf("browserScreenshot()可能需要Chrome环境，跳过: %v", err)
+		t.Logf("机器人检测测试可能需要Chrome环境，跳过: %v", err)
 		t.Skip("浏览器测试需要Chrome环境")
 		return
 	}
 
 	resultObj := result.ToObject(sb.vm)
 	if resultObj == nil {
-		t.Fatal("browserScreenshot()返回的对象为nil")
+		t.Fatal("screenshot()返回的对象为nil")
 	}
 
 	success := resultObj.Get("success")
 	if success == nil || goja.IsUndefined(success) {
-		t.Error("browserScreenshot()缺少success字段")
+		t.Error("screenshot()缺少success字段")
 	}
 
 	if !success.ToBoolean() {
 		errorVal := resultObj.Get("error")
 		if errorVal != nil && !goja.IsUndefined(errorVal) {
-			t.Fatalf("browserScreenshot()失败: %v", errorVal.String())
+			t.Fatalf("screenshot()失败: %v", errorVal.String())
 		}
-		t.Fatal("browserScreenshot()失败，但未返回错误信息")
+		t.Fatal("screenshot()失败，但未返回错误信息")
 	}
 
 	// 确定实际的文件路径
@@ -374,7 +655,7 @@ func TestBrowserScanBotDetection(t *testing.T) {
 			}
 		}
 	} else {
-		t.Error("browserScreenshot()未返回path字段")
+		t.Error("screenshot()未返回path字段")
 	}
 
 	// 额外验证：直接检查我们传入的路径
