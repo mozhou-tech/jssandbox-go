@@ -10,43 +10,6 @@ go mod download
 
 ### 2. 安装系统依赖（如需要）
 
-#### ffmpeg（视频处理功能需要）
-
-如果使用视频处理功能（`videoConvert`, `videoTrim`, `videoCrop` 等），需要安装 ffmpeg：
-
-- **macOS:**
-  ```bash
-  brew install ffmpeg
-  ```
-
-- **Linux (Ubuntu/Debian):**
-  ```bash
-  sudo apt update && sudo apt install ffmpeg
-  ```
-
-- **Linux (CentOS/RHEL):**
-  ```bash
-  sudo yum install ffmpeg
-  # 或
-  sudo dnf install ffmpeg
-  ```
-
-- **Windows:**
-  - 从 [ffmpeg.org](https://ffmpeg.org/download.html) 下载
-  - 或使用 Chocolatey: `choco install ffmpeg`
-  - 或使用 Scoop: `scoop install ffmpeg`
-
-验证安装：
-```bash
-ffmpeg -version
-```
-
-> **提示：** 如果不需要视频处理功能，可以在创建沙盒时禁用：
-> ```go
-> config := jssandbox.DefaultConfig().DisableVideoProcessing()
-> sandbox := jssandbox.NewSandboxWithConfig(ctx, config)
-> ```
-
 #### Chrome/Chromium（浏览器功能需要）
 
 浏览器自动化功能（`browserNavigate`, `browserScreenshot` 等）需要 Chrome/Chromium。chromedp 会自动下载 Chrome，也可以使用系统已安装的 Chrome。
@@ -134,29 +97,10 @@ go run cmd/jssandbox/main.go
 ### 7. 文件类型检测
 - `detectFileType(filePath)` - 检测文件类型（返回MIME、扩展名等）
 - `isImage(filePath)` - 检测是否为图片
-- `isVideo(filePath)` - 检测是否为视频
 - `isAudio(filePath)` - 检测是否为音频
 - `isDocument(filePath)` - 检测是否为文档
 - `isFont(filePath)` - 检测是否为字体
 - `isArchive(filePath)` - 检测是否为归档文件
-
-### 8. 视频处理
-- `videoConvert(inputPath, outputPath)` - 视频转码/转换格式
-- `videoTrim(inputPath, outputPath, startTime, duration)` - 视频裁剪（按时间）
-  - startTime: 开始时间，格式 "00:00:10" 或 "10"（秒）
-  - duration: 持续时间，格式 "00:00:05" 或 "5"（秒）
-- `videoCrop(inputPath, outputPath, x, y, width, height)` - 视频裁剪（按尺寸和位置）
-- `videoResize(inputPath, outputPath, width, height?)` - 调整视频分辨率
-  - height: 可选，如果不提供则按比例缩放
-- `videoExtractAudio(inputPath, outputPath, options?)` - 提取音频
-  - options: 可选对象，包含 codec（编解码器，默认 "libmp3lame"）和 bitrate（比特率，默认 "192k"）
-- `videoConcat(videoPaths, outputPath)` - 合并视频
-  - videoPaths: 视频文件路径数组
-- `videoCompress(inputPath, outputPath, options?)` - 压缩视频
-  - options: 可选对象，包含 crf（质量参数，18-28，默认23）和 preset（编码速度，默认 "medium"）
-- `videoInfo(filePath)` - 获取视频信息（文件大小、修改时间等）
-- `videoWatermark(inputPath, outputPath, watermarkPath, options?)` - 添加水印
-  - options: 可选对象，包含 position（位置，默认 "10:10"）和 scale（水印大小，默认 "100:100"）
 
 ## 示例代码
 
@@ -253,51 +197,5 @@ if (!type.unknown) {
 // 检测是否为图片
 var isImg = isImage("photo.jpg");
 console.log("是图片:", isImg.isImage);
-
-// 检测是否为视频
-var isVid = isVideo("video.mp4");
-console.log("是视频:", isVid.isVideo);
-```
-
-### 视频处理
-```javascript
-// 视频转码
-var result = videoConvert("input.avi", "output.mp4");
-console.log("转码成功:", result.success);
-
-// 视频裁剪（按时间）
-videoTrim("input.mp4", "output.mp4", "00:00:10", "00:00:30");
-
-// 视频裁剪（按尺寸）
-videoCrop("input.mp4", "output.mp4", 100, 100, 640, 480);
-
-// 调整视频分辨率
-videoResize("input.mp4", "output.mp4", 1280, 720);
-
-// 提取音频
-var audio = videoExtractAudio("video.mp4", "audio.mp3", {
-    codec: "libmp3lame",
-    bitrate: "192k"
-});
-
-// 合并视频
-var videos = ["video1.mp4", "video2.mp4", "video3.mp4"];
-videoConcat(videos, "merged.mp4");
-
-// 压缩视频
-videoCompress("input.mp4", "output.mp4", {
-    crf: 23,
-    preset: "medium"
-});
-
-// 获取视频信息
-var info = videoInfo("video.mp4");
-console.log("文件大小:", info.size);
-
-// 添加水印
-videoWatermark("input.mp4", "output.mp4", "watermark.png", {
-    position: "10:10",
-    scale: "200:200"
-});
 ```
 

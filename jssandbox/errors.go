@@ -22,8 +22,6 @@ const (
 	ErrCodeDocumentError ErrorCode = "DOCUMENT_ERROR"
 	// ErrCodeImageError 图片处理错误
 	ErrCodeImageError ErrorCode = "IMAGE_ERROR"
-	// ErrCodeVideoError 视频处理错误
-	ErrCodeVideoError ErrorCode = "VIDEO_ERROR"
 	// ErrCodeSystemError 系统操作错误
 	ErrCodeSystemError ErrorCode = "SYSTEM_ERROR"
 	// ErrCodeUnknown 未知错误

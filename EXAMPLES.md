@@ -44,8 +44,7 @@ config := jssandbox.DefaultConfig().
     DisableBrowser().
     DisableFileSystem().
     DisableDocuments().
-    DisableImageProcessing().
-    DisableVideoProcessing()
+    DisableImageProcessing()
 
 sandbox := jssandbox.NewSandboxWithConfig(ctx, config)
 // 只启用系统操作和 HTTP 功能

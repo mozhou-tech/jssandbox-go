@@ -121,39 +121,6 @@ func TestIsImage(t *testing.T) {
 	}
 }
 
-func TestIsVideo(t *testing.T) {
-	ctx := context.Background()
-	sb := NewSandbox(ctx)
-	defer sb.Close()
-
-	// 创建一个非视频文件
-	testDir := t.TempDir()
-	testFile := filepath.Join(testDir, "test.txt")
-	os.WriteFile(testFile, []byte("test"), 0644)
-
-	code := `
-		var result = isVideo("` + testFile + `");
-		result;
-	`
-
-	result, err := sb.Run(code)
-	if err != nil {
-		t.Fatalf("isVideo() error = %v", err)
-	}
-
-	resultObj := result.ToObject(sb.vm)
-	if resultObj == nil {
-		t.Fatal("isVideo()返回的对象为nil")
-	}
-
-	isVideo := resultObj.Get("isVideo")
-	if isVideo == nil || goja.IsUndefined(isVideo) {
-		t.Error("isVideo()缺少isVideo字段")
-	} else if isVideo.ToBoolean() {
-		t.Error("isVideo()对文本文件应该返回false")
-	}
-}
-
 func TestIsAudio(t *testing.T) {
 	ctx := context.Background()
 	sb := NewSandbox(ctx)

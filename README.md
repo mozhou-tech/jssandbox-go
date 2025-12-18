@@ -7,29 +7,11 @@
 ### 必需依赖
 
 - **Go 1.21+** - 编程语言环境
-- **ffmpeg** - 用于视频处理功能（如果使用视频处理相关功能）
-
-  **安装方法：**
-  - macOS: `brew install ffmpeg`
-  - Linux (Ubuntu/Debian): `sudo apt update && sudo apt install ffmpeg`
-  - Linux (CentOS/RHEL): `sudo yum install ffmpeg` 或 `sudo dnf install ffmpeg`
-  - Windows: 从 [ffmpeg.org](https://ffmpeg.org/download.html) 下载，或使用 `choco install ffmpeg`
-
-  **验证安装：**
-  ```bash
-  ffmpeg -version
-  ```
 
 ### 可选依赖
 
 - **Chrome/Chromium** - 用于浏览器自动化功能（如果使用浏览器相关功能）
   - chromedp 会自动下载 Chrome，但也可以使用系统已安装的 Chrome
-
-> **注意：** 如果不需要视频处理功能，可以在创建沙盒时禁用：
-> ```go
-> config := jssandbox.DefaultConfig().DisableVideoProcessing()
-> sandbox := jssandbox.NewSandboxWithConfig(ctx, config)
-> ```
 
 ## 功能特性
 
@@ -72,19 +54,8 @@
 9. ✅ 集成github.com/h2non/filetype库，可以进行文件类型检测
    - ✅ 检测文件类型（detectFileType）
    - ✅ 检测是否为图片（isImage）
-   - ✅ 检测是否为视频（isVideo）
    - ✅ 检测是否为音频（isAudio）
    - ✅ 检测是否为文档（isDocument）
    - ✅ 检测是否为字体（isFont）
    - ✅ 检测是否为归档文件（isArchive）
    - 注：getFileInfo函数已集成filetype库，优先使用二进制检测，失败时回退到扩展名判断
-10. ✅ 集成github.com/u2takey/ffmpeg-go库，可以进行视频处理
-   - ✅ 视频转码/转换格式（videoConvert）
-   - ✅ 视频裁剪-按时间（videoTrim）
-   - ✅ 视频裁剪-按尺寸和位置（videoCrop）
-   - ✅ 调整视频分辨率（videoResize）
-   - ✅ 提取音频（videoExtractAudio）
-   - ✅ 合并视频（videoConcat）
-   - ✅ 压缩视频（videoCompress）
-   - ✅ 获取视频信息（videoInfo）
-   - ✅ 添加水印（videoWatermark）

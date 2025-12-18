@@ -81,32 +81,6 @@ func (sb *Sandbox) registerFileTypeDetection() {
 		})
 	})
 
-	// 检测是否为视频
-	sb.vm.Set("isVideo", func(filePath string) goja.Value {
-		file, err := os.Open(filePath)
-		if err != nil {
-			return sb.vm.ToValue(map[string]interface{}{
-				"isVideo": false,
-				"error":   err.Error(),
-			})
-		}
-		defer file.Close()
-
-		buf := make([]byte, 261)
-		n, err := file.Read(buf)
-		if err != nil && n == 0 {
-			return sb.vm.ToValue(map[string]interface{}{
-				"isVideo": false,
-				"error":   err.Error(),
-			})
-		}
-
-		isVideo := filetype.IsVideo(buf[:n])
-		return sb.vm.ToValue(map[string]interface{}{
-			"isVideo": isVideo,
-		})
-	})
-
 	// 检测是否为音频
 	sb.vm.Set("isAudio", func(filePath string) goja.Value {
 		file, err := os.Open(filePath)

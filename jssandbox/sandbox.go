@@ -82,9 +82,6 @@ func (sb *Sandbox) registerExtensions() {
 	}
 	// 文件类型检测始终启用（文件系统功能依赖它）
 	sb.registerFileTypeDetection()
-	if sb.config.EnableVideoProcessing {
-		sb.registerVideoProcessing()
-	}
 }
 
 // Run 执行JavaScript代码

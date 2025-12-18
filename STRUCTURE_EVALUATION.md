@@ -18,7 +18,6 @@ jssandbox-go/
 │   ├── documents.go        # 文档读取
 │   ├── image.go            # 图片处理
 │   ├── filetype.go         # 文件类型检测
-│   ├── video.go            # 视频处理
 │   └── *_test.go           # 测试文件
 ├── go.mod
 ├── go.sum
@@ -244,8 +243,7 @@ jssandbox-go/
 │   │   ├── browser/
 │   │   ├── documents/
 │   │   ├── image/
-│   │   ├── filetype/
-│   │   └── video/
+│   │   └── filetype/
 │   └── errors/
 ├── pkg/                   # 可对外暴露的包
 │   └── jssandbox/         # 公共API

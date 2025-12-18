@@ -24,8 +24,6 @@ type Config struct {
 	EnableDocuments bool
 	// EnableImageProcessing 是否启用图片处理功能
 	EnableImageProcessing bool
-	// EnableVideoProcessing 是否启用视频处理功能
-	EnableVideoProcessing bool
 }
 
 // DefaultConfig 返回默认配置
@@ -41,7 +39,6 @@ func DefaultConfig() *Config {
 		EnableHTTP:           true,
 		EnableDocuments:      true,
 		EnableImageProcessing: true,
-		EnableVideoProcessing: true,
 	}
 }
 

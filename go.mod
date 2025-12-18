@@ -10,7 +10,6 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/h2non/filetype v1.1.3
 	github.com/shirou/gopsutil/v3 v3.23.10
-	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/unidoc/unioffice v1.25.0
 	github.com/unidoc/unipdf/v3 v3.54.0
 	github.com/xuri/excelize/v2 v2.8.0
@@ -42,7 +41,6 @@ require (
 	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
-	github.com/u2takey/go-utils v0.3.1 // indirect
 	github.com/unidoc/pkcs7 v0.2.0 // indirect
 	github.com/unidoc/timestamp v0.0.0-20200412005513-91597fd3793a // indirect
 	github.com/unidoc/unitype v0.4.0 // indirect
