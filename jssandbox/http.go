@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
-	"go.uber.org/zap"
 )
 
 // registerHTTP 注册HTTP请求功能到JavaScript运行时
@@ -56,7 +55,7 @@ func (sb *Sandbox) registerHTTP() {
 
 		req, err := http.NewRequest(method, url, reqBody)
 		if err != nil {
-			sb.logger.Error("创建HTTP请求失败", zap.Error(err))
+			sb.logger.WithError(err).Error("创建HTTP请求失败")
 			return sb.vm.ToValue(map[string]interface{}{
 				"error": err.Error(),
 			})
@@ -68,7 +67,7 @@ func (sb *Sandbox) registerHTTP() {
 
 		resp, err := client.Do(req)
 		if err != nil {
-			sb.logger.Error("执行HTTP请求失败", zap.Error(err))
+			sb.logger.WithError(err).Error("执行HTTP请求失败")
 			return sb.vm.ToValue(map[string]interface{}{
 				"error": err.Error(),
 			})
@@ -77,7 +76,7 @@ func (sb *Sandbox) registerHTTP() {
 
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			sb.logger.Error("读取响应体失败", zap.Error(err))
+			sb.logger.WithError(err).Error("读取响应体失败")
 			return sb.vm.ToValue(map[string]interface{}{
 				"status":  resp.StatusCode,
 				"headers": resp.Header,

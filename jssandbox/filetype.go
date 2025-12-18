@@ -5,7 +5,6 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/h2non/filetype"
-	"go.uber.org/zap"
 )
 
 // registerFileTypeDetection 注册文件类型检测功能到JavaScript运行时
@@ -32,7 +31,7 @@ func (sb *Sandbox) registerFileTypeDetection() {
 		// 检测文件类型
 		kind, err := filetype.Match(buf[:n])
 		if err != nil {
-			sb.logger.Error("文件类型检测失败", zap.String("path", filePath), zap.Error(err))
+			sb.logger.WithError(err).WithField("path", filePath).Error("文件类型检测失败")
 			return sb.vm.ToValue(map[string]interface{}{
 				"unknown": true,
 				"error":   err.Error(),
@@ -185,4 +184,3 @@ func (sb *Sandbox) registerFileTypeDetection() {
 		})
 	})
 }
-

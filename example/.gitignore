@@ -1,0 +1,16 @@
+# 编译输出
+**/main
+**/main.exe
+**/*.exe
+
+# 数据文件
+**/bid_info_*.json
+
+# 图片处理输出目录
+**/output/
+**/processed_*/
+
+# 临时文件
+*.tmp
+*.log
+

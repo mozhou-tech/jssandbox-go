@@ -25,11 +25,11 @@ build: ## 构建 jssandbox 可执行文件
 
 test: ## 运行测试
 	@echo "运行测试..."
-	@go test -v ./...
+	@go test -v ./jssandbox/...
 
 test-coverage: ## 生成测试覆盖率报告
 	@echo "生成测试覆盖率报告..."
-	@go test -v -coverprofile=coverage.out ./...
+	@go test -v -coverprofile=coverage.out ./jssandbox/...
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "覆盖率报告已生成: coverage.html"
 

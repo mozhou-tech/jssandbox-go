@@ -10,7 +10,6 @@ import (
 	"github.com/chromedp/chromedp"
 	"github.com/dop251/goja"
 	"github.com/sirupsen/logrus"
-	"go.uber.org/zap"
 )
 
 // BrowserSession 表示一个浏览器会话，可以保持状态（如cookies）并执行多个连续操作
@@ -150,7 +149,7 @@ func (bs *BrowserSession) Navigate(url string) map[string]interface{} {
 	)
 
 	if err != nil {
-		bs.sb.logger.Error("浏览器导航失败", zap.String("url", url), zap.Error(err))
+		bs.sb.logger.WithError(err).WithField("url", url).Error("浏览器导航失败")
 		return map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
@@ -194,7 +193,7 @@ func (bs *BrowserSession) Wait(selectorOrSeconds interface{}) map[string]interfa
 	}
 
 	if err != nil {
-		bs.sb.logger.Error("等待操作失败", zap.Error(err))
+		bs.sb.logger.WithError(err).Error("等待操作失败")
 		return map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
@@ -224,7 +223,7 @@ func (bs *BrowserSession) Click(selector string) map[string]interface{} {
 	)
 
 	if err != nil {
-		bs.sb.logger.Error("点击元素失败", zap.String("selector", selector), zap.Error(err))
+		bs.sb.logger.WithError(err).WithField("selector", selector).Error("点击元素失败")
 		return map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
@@ -255,7 +254,7 @@ func (bs *BrowserSession) Fill(selector, value string) map[string]interface{} {
 	)
 
 	if err != nil {
-		bs.sb.logger.Error("填充表单失败", zap.String("selector", selector), zap.Error(err))
+		bs.sb.logger.WithError(err).WithField("selector", selector).Error("填充表单失败")
 		return map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
@@ -285,7 +284,7 @@ func (bs *BrowserSession) Evaluate(jsCode string) map[string]interface{} {
 	)
 
 	if err != nil {
-		bs.sb.logger.Error("执行浏览器脚本失败", zap.Error(err))
+		bs.sb.logger.WithError(err).Error("执行浏览器脚本失败")
 		return map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
@@ -316,7 +315,7 @@ func (bs *BrowserSession) GetHTML() map[string]interface{} {
 	)
 
 	if err != nil {
-		bs.sb.logger.Error("获取HTML失败", zap.Error(err))
+		bs.sb.logger.WithError(err).Error("获取HTML失败")
 		return map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
@@ -347,7 +346,7 @@ func (bs *BrowserSession) Screenshot(outputPath string) map[string]interface{} {
 	)
 
 	if err != nil {
-		bs.sb.logger.Error("截图失败", zap.Error(err))
+		bs.sb.logger.WithError(err).Error("截图失败")
 		return map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
@@ -367,7 +366,7 @@ func (bs *BrowserSession) Screenshot(outputPath string) map[string]interface{} {
 	dir := filepath.Dir(outputPath)
 	if dir != "." && dir != "" {
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			bs.sb.logger.Error("创建目录失败", zap.String("dir", dir), zap.Error(err))
+			bs.sb.logger.WithError(err).WithField("dir", dir).Error("创建目录失败")
 			return map[string]interface{}{
 				"success": false,
 				"error":   "创建目录失败: " + err.Error(),
@@ -378,7 +377,7 @@ func (bs *BrowserSession) Screenshot(outputPath string) map[string]interface{} {
 	// 保存截图
 	err = os.WriteFile(outputPath, buf, 0644)
 	if err != nil {
-		bs.sb.logger.Error("保存截图文件失败", zap.String("path", outputPath), zap.Error(err))
+		bs.sb.logger.WithError(err).WithField("path", outputPath).Error("保存截图文件失败")
 		return map[string]interface{}{
 			"success": false,
 			"error":   "保存文件失败: " + err.Error(),
@@ -387,13 +386,13 @@ func (bs *BrowserSession) Screenshot(outputPath string) map[string]interface{} {
 
 	// 验证文件是否真的被写入
 	if fileInfo, err := os.Stat(outputPath); err != nil {
-		bs.sb.logger.Error("验证截图文件失败", zap.String("path", outputPath), zap.Error(err))
+		bs.sb.logger.WithError(err).WithField("path", outputPath).Error("验证截图文件失败")
 		return map[string]interface{}{
 			"success": false,
 			"error":   "文件写入后验证失败: " + err.Error(),
 		}
 	} else if fileInfo.Size() == 0 {
-		bs.sb.logger.Error("截图文件大小为0", zap.String("path", outputPath))
+		bs.sb.logger.WithField("path", outputPath).Error("截图文件大小为0")
 		return map[string]interface{}{
 			"success": false,
 			"error":   "截图文件大小为0",
@@ -424,7 +423,7 @@ func (bs *BrowserSession) GetURL() map[string]interface{} {
 	)
 
 	if err != nil {
-		bs.sb.logger.Error("获取URL失败", zap.Error(err))
+		bs.sb.logger.WithError(err).Error("获取URL失败")
 		return map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
@@ -582,7 +581,7 @@ func (bs *BrowserSession) Clear(selector string) map[string]interface{} {
 	)
 
 	if err != nil {
-		bs.sb.logger.Error("清空输入框失败", zap.String("selector", selector), zap.Error(err))
+		bs.sb.logger.WithError(err).WithField("selector", selector).Error("清空输入框失败")
 		return map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
@@ -622,7 +621,7 @@ func (bs *BrowserSession) Submit(selector string) map[string]interface{} {
 			chromedp.Evaluate(jsCode, nil),
 		)
 		if err != nil {
-			bs.sb.logger.Error("提交表单失败", zap.Error(err))
+			bs.sb.logger.WithError(err).Error("提交表单失败")
 			return map[string]interface{}{
 				"success": false,
 				"error":   err.Error(),
@@ -635,7 +634,7 @@ func (bs *BrowserSession) Submit(selector string) map[string]interface{} {
 			chromedp.Click(selector, chromedp.ByQuery),
 		)
 		if err != nil {
-			bs.sb.logger.Error("点击提交按钮失败", zap.String("selector", selector), zap.Error(err))
+			bs.sb.logger.WithError(err).WithField("selector", selector).Error("点击提交按钮失败")
 			return map[string]interface{}{
 				"success": false,
 				"error":   err.Error(),

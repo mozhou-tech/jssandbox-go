@@ -18,7 +18,6 @@ import (
 	"github.com/djherbis/times"
 	"github.com/dop251/goja"
 	"github.com/h2non/filetype"
-	"go.uber.org/zap"
 )
 
 // registerFileSystem 注册文件系统操作功能到JavaScript运行时
@@ -42,7 +41,7 @@ func (sb *Sandbox) registerFileSystem() {
 
 		err := cmd.Run()
 		if err != nil {
-			sb.logger.Error("打开文件失败", zap.String("path", filePath), zap.Error(err))
+			sb.logger.WithError(err).WithField("path", filePath).Error("打开文件失败")
 			return map[string]interface{}{
 				"success": false,
 				"error":   err.Error(),

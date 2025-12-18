@@ -10,7 +10,6 @@ import (
 	"github.com/unidoc/unioffice/presentation"
 	"github.com/unidoc/unipdf/v3/model"
 	"github.com/xuri/excelize/v2"
-	"go.uber.org/zap"
 )
 
 // registerDocuments 注册文档读取功能到JavaScript运行时
@@ -39,7 +38,7 @@ func (sb *Sandbox) registerDocuments() {
 
 		doc, err := document.Open(filePath)
 		if err != nil {
-			sb.logger.Error("打开Word文件失败", zap.String("path", filePath), zap.Error(err))
+			sb.logger.WithError(err).WithField("path", filePath).Error("打开Word文件失败")
 			return sb.vm.ToValue(map[string]interface{}{
 				"error": err.Error(),
 			})
@@ -107,7 +106,7 @@ func (sb *Sandbox) registerDocuments() {
 
 		f, err := excelize.OpenFile(filePath)
 		if err != nil {
-			sb.logger.Error("打开Excel文件失败", zap.String("path", filePath), zap.Error(err))
+			sb.logger.WithError(err).WithField("path", filePath).Error("打开Excel文件失败")
 			return sb.vm.ToValue(map[string]interface{}{
 				"error": err.Error(),
 			})
@@ -177,7 +176,7 @@ func (sb *Sandbox) registerDocuments() {
 
 		ppt, err := presentation.Open(filePath)
 		if err != nil {
-			sb.logger.Error("打开PPT文件失败", zap.String("path", filePath), zap.Error(err))
+			sb.logger.WithError(err).WithField("path", filePath).Error("打开PPT文件失败")
 			return sb.vm.ToValue(map[string]interface{}{
 				"error": err.Error(),
 			})
@@ -275,7 +274,7 @@ func (sb *Sandbox) registerDocuments() {
 
 		pdfReader, err := model.NewPdfReader(f)
 		if err != nil {
-			sb.logger.Error("读取PDF文件失败", zap.String("path", filePath), zap.Error(err))
+			sb.logger.WithError(err).WithField("path", filePath).Error("读取PDF文件失败")
 			return sb.vm.ToValue(map[string]interface{}{
 				"error": err.Error(),
 			})

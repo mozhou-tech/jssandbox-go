@@ -6,7 +6,6 @@ import (
 
 	"github.com/disintegration/imaging"
 	"github.com/dop251/goja"
-	"go.uber.org/zap"
 )
 
 // registerImageProcessing 注册图片处理功能到JavaScript运行时
@@ -30,7 +29,7 @@ func (sb *Sandbox) registerImageProcessing() {
 
 		img, err := imaging.Open(inputPath)
 		if err != nil {
-			sb.logger.Error("打开图片失败", zap.String("path", inputPath), zap.Error(err))
+			sb.logger.WithError(err).WithField("path", inputPath).Error("打开图片失败")
 			return sb.vm.ToValue(map[string]interface{}{
 				"success": false,
 				"error":   err.Error(),
@@ -46,7 +45,7 @@ func (sb *Sandbox) registerImageProcessing() {
 
 		err = imaging.Save(resized, outputPath)
 		if err != nil {
-			sb.logger.Error("保存图片失败", zap.String("path", outputPath), zap.Error(err))
+			sb.logger.WithError(err).WithField("path", outputPath).Error("保存图片失败")
 			return sb.vm.ToValue(map[string]interface{}{
 				"success": false,
 				"error":   err.Error(),

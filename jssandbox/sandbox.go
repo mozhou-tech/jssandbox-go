@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
-	"go.uber.org/zap"
+	"github.com/sirupsen/logrus"
 )
 
 // Sandbox 表示一个JavaScript沙盒环境
 type Sandbox struct {
 	vm     *goja.Runtime
-	logger *zap.Logger
+	logger *logrus.Logger
 	ctx    context.Context
 	config *Config
 }
@@ -25,7 +25,7 @@ func NewSandbox(ctx context.Context) *Sandbox {
 // NewSandboxWithConfig 使用指定配置创建新的沙盒实例
 func NewSandboxWithConfig(ctx context.Context, config *Config) *Sandbox {
 	vm := goja.New()
-	logger, _ := zap.NewProduction()
+	logger := GetLogger()
 
 	sb := &Sandbox{
 		vm:     vm,
@@ -41,12 +41,12 @@ func NewSandboxWithConfig(ctx context.Context, config *Config) *Sandbox {
 }
 
 // NewSandboxWithLogger 使用自定义logger创建沙盒（使用默认配置）
-func NewSandboxWithLogger(ctx context.Context, logger *zap.Logger) *Sandbox {
+func NewSandboxWithLogger(ctx context.Context, logger *logrus.Logger) *Sandbox {
 	return NewSandboxWithLoggerAndConfig(ctx, logger, DefaultConfig())
 }
 
 // NewSandboxWithLoggerAndConfig 使用自定义logger和配置创建沙盒
-func NewSandboxWithLoggerAndConfig(ctx context.Context, logger *zap.Logger, config *Config) *Sandbox {
+func NewSandboxWithLoggerAndConfig(ctx context.Context, logger *logrus.Logger, config *Config) *Sandbox {
 	vm := goja.New()
 	sb := &Sandbox{
 		vm:     vm,
@@ -131,8 +131,6 @@ func (sb *Sandbox) Get(name string) goja.Value {
 
 // Close 关闭沙盒并清理资源
 func (sb *Sandbox) Close() error {
-	if sb.logger != nil {
-		sb.logger.Sync()
-	}
+	// logrus 不需要显式同步
 	return nil
 }

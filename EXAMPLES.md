@@ -107,9 +107,10 @@ if err != nil {
 ## 使用自定义 Logger
 
 ```go
-import "go.uber.org/zap"
+import "github.com/sirupsen/logrus"
 
-logger, _ := zap.NewDevelopment()
+logger := logrus.New()
+logger.SetLevel(logrus.DebugLevel)
 sandbox := jssandbox.NewSandboxWithLogger(ctx, logger)
 
 // 或使用自定义配置

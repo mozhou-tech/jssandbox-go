@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 
+	"github.com/sirupsen/logrus"
 	"github.com/supacloud/jssandbox-go/jssandbox"
 )
 
@@ -72,11 +72,10 @@ func main() {
 		};
 		result;
 	`
-	
+
 	result, err := sandbox.Run(aiGeneratedCode)
 	if err != nil {
-		log.Fatal("执行失败:", err)
+		logrus.WithError(err).Fatal("执行失败")
 	}
 	fmt.Println("执行结果:", result)
 }
-

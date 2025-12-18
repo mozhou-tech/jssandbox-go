@@ -2,10 +2,11 @@ package jssandbox
 
 import (
 	"context"
+	"io"
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
+	"github.com/sirupsen/logrus"
 )
 
 func TestNewSandbox(t *testing.T) {
@@ -29,7 +30,8 @@ func TestNewSandbox(t *testing.T) {
 
 func TestNewSandboxWithLogger(t *testing.T) {
 	ctx := context.Background()
-	logger := zap.NewNop()
+	logger := logrus.New()
+	logger.SetOutput(io.Discard) // 在测试中禁用日志输出
 	sb := NewSandboxWithLogger(ctx, logger)
 	defer sb.Close()
 

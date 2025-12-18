@@ -10,10 +10,10 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/h2non/filetype v1.1.3
 	github.com/shirou/gopsutil/v3 v3.23.10
+	github.com/sirupsen/logrus v1.9.3
 	github.com/unidoc/unioffice v1.25.0
 	github.com/unidoc/unipdf/v3 v3.54.0
 	github.com/xuri/excelize/v2 v2.8.0
-	go.uber.org/zap v1.26.0
 )
 
 require (
@@ -37,7 +37,6 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b // indirect
 	github.com/richardlehane/mscfb v1.0.4 // indirect
 	github.com/richardlehane/msoleps v1.0.3 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
