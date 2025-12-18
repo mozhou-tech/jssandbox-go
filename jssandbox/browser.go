@@ -29,29 +29,52 @@ func init() {
 	logrus.SetLevel(logrus.FatalLevel)
 }
 
-// createBrowserContext 创建配置了反检测选项的浏览器上下文
-// 包括隐藏自动化特征、设置真实User-Agent等
-func (sb *Sandbox) createBrowserContext() (context.Context, context.CancelFunc) {
+// getOrCreateBrowserAllocator 获取或创建共享的浏览器 allocator
+// 这确保所有会话使用同一个浏览器进程，避免打开多个窗口
+func (sb *Sandbox) getOrCreateBrowserAllocator() context.Context {
+	sb.browserMu.Lock()
+	defer sb.browserMu.Unlock()
+
+	if sb.browserInit && sb.browserAllocator != nil {
+		return sb.browserAllocator
+	}
+
 	// 创建 allocator 选项，配置反检测参数
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.Flag("headless", true),                                 // 保持headless模式
+		chromedp.Flag("headless", sb.config.Headless),                   // 根据配置决定是否使用headless模式
 		chromedp.Flag("disable-blink-features", "AutomationControlled"), // 隐藏自动化特征
 		chromedp.UserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"), // 设置真实User-Agent
 		chromedp.Flag("disable-dev-shm-usage", true),              // 避免共享内存问题
 		chromedp.Flag("no-sandbox", true),                         // 在某些环境下需要
-		chromedp.Flag("disable-gpu", true),                        // 在headless模式下禁用GPU
 		chromedp.Flag("disable-setuid-sandbox", true),             // 禁用setuid沙箱
 		chromedp.Flag("disable-web-security", false),              // 保持web安全
 		chromedp.Flag("disable-features", "VizDisplayCompositor"), // 禁用某些可能暴露的特征
 	)
 
-	allocCtx, cancel := chromedp.NewExecAllocator(sb.ctx, opts...)
-	ctx, cancel2 := chromedp.NewContext(allocCtx)
-
-	return ctx, func() {
-		cancel2()
-		cancel()
+	// 只在headless模式下禁用GPU
+	if sb.config.Headless {
+		opts = append(opts, chromedp.Flag("disable-gpu", true))
 	}
+
+	allocCtx, cancel := chromedp.NewExecAllocator(sb.ctx, opts...)
+	sb.browserAllocator = allocCtx
+	sb.browserCancel = cancel
+	sb.browserInit = true
+
+	return allocCtx
+}
+
+// createBrowserContext 创建配置了反检测选项的浏览器上下文
+// 包括隐藏自动化特征、设置真实User-Agent等
+// 使用共享的 allocator，确保只打开一个浏览器窗口
+func (sb *Sandbox) createBrowserContext() (context.Context, context.CancelFunc) {
+	// 获取或创建共享的 allocator（浏览器进程）
+	allocCtx := sb.getOrCreateBrowserAllocator()
+
+	// 为每个会话创建新的 context（标签页），但共享同一个 allocator（浏览器进程）
+	ctx, cancel := chromedp.NewContext(allocCtx)
+
+	return ctx, cancel
 }
 
 // injectStealthScript 注入反检测脚本，隐藏webdriver特征

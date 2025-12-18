@@ -1,7 +1,9 @@
 package jssandbox
 
 import (
+	"fmt"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/dop251/goja"
@@ -82,4 +84,47 @@ func (sb *Sandbox) registerSystemOps() {
 	sb.vm.Set("sleep", func(ms int) {
 		time.Sleep(time.Duration(ms) * time.Millisecond)
 	})
+
+	// 注册 console 对象
+	consoleObj := sb.vm.NewObject()
+	
+	// 辅助函数：格式化 console 参数
+	formatConsoleArgs := func(call goja.FunctionCall) string {
+		if len(call.Arguments) == 0 {
+			return ""
+		}
+		parts := make([]string, len(call.Arguments))
+		for i, arg := range call.Arguments {
+			if goja.IsUndefined(arg) {
+				parts[i] = "undefined"
+			} else if goja.IsNull(arg) {
+				parts[i] = "null"
+			} else {
+				parts[i] = fmt.Sprintf("%v", arg.Export())
+			}
+		}
+		return strings.Join(parts, " ")
+	}
+	
+	consoleObj.Set("log", func(call goja.FunctionCall) goja.Value {
+		sb.logger.Info(formatConsoleArgs(call))
+		return goja.Undefined()
+	})
+	consoleObj.Set("error", func(call goja.FunctionCall) goja.Value {
+		sb.logger.Error(formatConsoleArgs(call))
+		return goja.Undefined()
+	})
+	consoleObj.Set("warn", func(call goja.FunctionCall) goja.Value {
+		sb.logger.Warn(formatConsoleArgs(call))
+		return goja.Undefined()
+	})
+	consoleObj.Set("info", func(call goja.FunctionCall) goja.Value {
+		sb.logger.Info(formatConsoleArgs(call))
+		return goja.Undefined()
+	})
+	consoleObj.Set("debug", func(call goja.FunctionCall) goja.Value {
+		sb.logger.Debug(formatConsoleArgs(call))
+		return goja.Undefined()
+	})
+	sb.vm.Set("console", consoleObj)
 }

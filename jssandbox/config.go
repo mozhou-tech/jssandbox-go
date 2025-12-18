@@ -24,21 +24,27 @@ type Config struct {
 	EnableDocuments bool
 	// EnableImageProcessing 是否启用图片处理功能
 	EnableImageProcessing bool
+	// EnableGoQuery 是否启用 goquery HTML 解析功能
+	EnableGoQuery bool
+	// Headless 浏览器是否使用无头模式（true=无头模式，false=显示浏览器窗口）
+	Headless bool
 }
 
 // DefaultConfig 返回默认配置
 func DefaultConfig() *Config {
 	return &Config{
 		DefaultTimeout:        30 * time.Second,
-		HTTPTimeout:          30 * time.Second,
-		BrowserTimeout:       60 * time.Second,
-		MaxFileSize:          100 * 1024 * 1024, // 100MB
-		AllowedFileTypes:     []string{},
-		EnableBrowser:        true,
-		EnableFileSystem:     true,
-		EnableHTTP:           true,
-		EnableDocuments:      true,
+		HTTPTimeout:           30 * time.Second,
+		BrowserTimeout:        60 * time.Second,
+		MaxFileSize:           100 * 1024 * 1024, // 100MB
+		AllowedFileTypes:      []string{},
+		EnableBrowser:         true,
+		EnableFileSystem:      true,
+		EnableHTTP:            true,
+		EnableDocuments:       true,
 		EnableImageProcessing: true,
+		EnableGoQuery:         true,
+		Headless:              true, // 默认使用无头模式
 	}
 }
 
@@ -90,3 +96,8 @@ func (c *Config) DisableHTTP() *Config {
 	return c
 }
 
+// WithHeadless 设置浏览器是否使用无头模式
+func (c *Config) WithHeadless(headless bool) *Config {
+	c.Headless = headless
+	return c
+}

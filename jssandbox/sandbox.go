@@ -3,6 +3,7 @@ package jssandbox
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/dop251/goja"
@@ -15,6 +16,11 @@ type Sandbox struct {
 	logger *logrus.Logger
 	ctx    context.Context
 	config *Config
+	// 浏览器相关的共享资源
+	browserAllocator context.Context
+	browserCancel    context.CancelFunc
+	browserMu        sync.Mutex
+	browserInit      bool
 }
 
 // NewSandbox 创建一个新的沙盒实例（使用默认配置）
@@ -80,6 +86,9 @@ func (sb *Sandbox) registerExtensions() {
 	if sb.config.EnableImageProcessing {
 		sb.registerImageProcessing()
 	}
+	if sb.config.EnableGoQuery {
+		sb.registerGoQuery()
+	}
 	// 文件类型检测始终启用（文件系统功能依赖它）
 	sb.registerFileTypeDetection()
 }
@@ -131,6 +140,13 @@ func (sb *Sandbox) Get(name string) goja.Value {
 
 // Close 关闭沙盒并清理资源
 func (sb *Sandbox) Close() error {
+	// 关闭浏览器 allocator（如果已初始化）
+	sb.browserMu.Lock()
+	if sb.browserInit && sb.browserCancel != nil {
+		sb.browserCancel()
+		sb.browserInit = false
+	}
+	sb.browserMu.Unlock()
 	// logrus 不需要显式同步
 	return nil
 }
