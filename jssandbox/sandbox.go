@@ -70,6 +70,18 @@ func (sb *Sandbox) registerExtensions() {
 	// 注册系统操作（始终启用）
 	sb.registerSystemOps()
 
+	// 注册基础工具功能（始终启用）
+	sb.registerCrypto()     // 加密/解密
+	sb.registerCompress()   // 压缩/解压缩
+	sb.registerCSV()        // CSV处理
+	sb.registerEnv()        // 环境变量和配置
+	sb.registerValidation() // 数据验证
+	sb.registerDateTime()   // 日期时间增强
+	sb.registerEncoding()   // 编码/解码增强
+	sb.registerProcess()    // 进程管理
+	sb.registerNetwork()    // 网络工具
+	sb.registerPath()       // 路径处理增强
+
 	// 根据配置选择性注册功能
 	if sb.config.EnableHTTP {
 		sb.registerHTTP()
