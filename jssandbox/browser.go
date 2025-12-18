@@ -165,22 +165,111 @@ func (bs *BrowserSession) Navigate(url string) map[string]interface{} {
 		}
 	}
 
-	err := chromedp.Run(bs.ctx,
-		chromedp.Navigate(url),
-		chromedp.WaitVisible("body", chromedp.ByQuery),
-		injectStealthScript(),
-	)
+	// 先执行导航
+	bs.sb.logger.WithField("url", url).Debug("开始导航到页面")
 
+	// 创建导航超时上下文（30秒）
+	navCtx, navCancel := context.WithTimeout(bs.ctx, 30*time.Second)
+	defer navCancel()
+
+	err := chromedp.Run(navCtx, chromedp.Navigate(url))
 	if err != nil {
 		bs.sb.logger.WithError(err).WithField("url", url).Error("浏览器导航失败")
 		return map[string]interface{}{
 			"success": false,
-			"error":   err.Error(),
+			"error":   "导航失败: " + err.Error(),
+		}
+	}
+	bs.sb.logger.WithField("url", url).Debug("导航命令已执行，等待页面加载")
+
+	// 等待页面加载完成 - 使用更可靠的策略
+	// 1. 先等待 DOMContentLoaded 事件
+	waitCtx, waitCancel := context.WithTimeout(bs.ctx, 30*time.Second)
+	defer waitCancel()
+
+	// 等待页面就绪（DOMContentLoaded）
+	err = chromedp.Run(waitCtx,
+		chromedp.WaitReady("body", chromedp.ByQuery),
+	)
+	if err != nil {
+		bs.sb.logger.WithError(err).WithField("url", url).Warn("等待body元素超时，尝试继续")
+	} else {
+		bs.sb.logger.WithField("url", url).Debug("页面body元素已就绪")
+	}
+
+	// 2. 等待一小段时间让JavaScript执行
+	err = chromedp.Run(bs.ctx, chromedp.Sleep(1*time.Second))
+	if err != nil {
+		bs.sb.logger.WithError(err).WithField("url", url).Warn("等待页面脚本执行时出错")
+	}
+
+	// 3. 尝试等待网络空闲（可选，如果页面还在加载资源）
+	// 使用JavaScript检查页面加载状态
+	networkIdleCtx, networkIdleCancel := context.WithTimeout(bs.ctx, 10*time.Second)
+	defer networkIdleCancel()
+
+	// 检查页面是否加载完成
+	var pageReady bool
+	err = chromedp.Run(networkIdleCtx,
+		chromedp.Evaluate(`
+			(function() {
+				if (document.readyState === 'complete') {
+					return true;
+				}
+				// 检查是否有正在进行的网络请求（通过performance API）
+				if (window.performance && window.performance.getEntriesByType) {
+					var entries = window.performance.getEntriesByType('resource');
+					// 如果最近1秒内没有新的资源加载，认为页面已就绪
+					var now = Date.now();
+					var recentLoads = entries.filter(function(entry) {
+						return (now - entry.responseEnd) < 1000;
+					});
+					return recentLoads.length === 0;
+				}
+				return document.readyState === 'interactive' || document.readyState === 'complete';
+			})();
+		`, &pageReady),
+	)
+	if err != nil {
+		bs.sb.logger.WithError(err).WithField("url", url).Debug("检查页面就绪状态时出错，继续执行")
+	} else if pageReady {
+		bs.sb.logger.WithField("url", url).Debug("页面加载完成")
+	} else {
+		bs.sb.logger.WithField("url", url).Debug("页面可能仍在加载中，继续执行")
+	}
+
+	// 注入反检测脚本
+	err = chromedp.Run(bs.ctx, injectStealthScript())
+	if err != nil {
+		bs.sb.logger.WithError(err).WithField("url", url).Warn("注入反检测脚本失败，但继续执行")
+		// 注入脚本失败不影响导航结果
+	}
+
+	// 验证导航是否成功 - 检查当前URL
+	var currentURL string
+	err = chromedp.Run(bs.ctx, chromedp.Location(&currentURL))
+	if err != nil {
+		bs.sb.logger.WithError(err).WithField("url", url).Warn("无法获取当前URL")
+		return map[string]interface{}{
+			"success": false,
+			"error":   "无法获取当前URL: " + err.Error(),
+		}
+	}
+
+	bs.sb.logger.WithField("url", url).WithField("currentURL", currentURL).Debug("导航完成，当前URL")
+
+	// 检查URL是否匹配（允许重定向）
+	if currentURL == "" {
+		bs.sb.logger.WithField("url", url).Error("当前URL为空")
+		return map[string]interface{}{
+			"success": false,
+			"error":   "导航后URL为空",
 		}
 	}
 
 	return map[string]interface{}{
 		"success": true,
+		"url":     currentURL,
 	}
 }
 

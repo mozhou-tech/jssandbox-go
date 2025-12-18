@@ -3,12 +3,32 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 
+	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/plugins/migratecmd"
+	_ "github.com/supacloud/jssandbox-go/migrations"
 	"github.com/sirupsen/logrus"
 	"github.com/supacloud/jssandbox-go/jssandbox"
 )
 
 func main() {
+	// 初始化 PocketBase
+	app := pocketbase.New()
+
+	// 注册迁移命令，启用自动迁移
+	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
+		Automigrate: true, // 自动运行迁移
+	})
+
+	// 启动 PocketBase（这会自动运行 migrations）
+	// 注意：这里使用 goroutine 在后台运行，不会阻塞主程序
+	go func() {
+		if err := app.Start(); err != nil {
+			log.Fatalf("PocketBase 启动失败: %v", err)
+		}
+	}()
+
 	// 创建沙盒实例
 	ctx := context.Background()
 	sandbox := jssandbox.NewSandbox(ctx)
