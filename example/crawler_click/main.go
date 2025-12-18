@@ -30,7 +30,7 @@ func main() {
 	logrus.Info("沙箱环境初始化完成")
 
 	// 从命令行参数获取URL，如果没有则使用默认URL
-	url := "http://jsggzy.jszwfw.gov.cn/jyxx/tradeInfonew.html"
+	url := "http://jsggzy.jszwfw.gov.cn"
 	if len(os.Args) > 1 {
 		url = os.Args[1]
 	}
