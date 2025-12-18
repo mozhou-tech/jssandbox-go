@@ -580,8 +580,12 @@ func TestBrowserSession_BotDetection(t *testing.T) {
 	sb := NewSandbox(ctx)
 	defer sb.Close()
 
-	testDir := t.TempDir()
-	outputPath := testDir + "/bot-detection-screenshot.png"
+	// 将截图保存到固定位置以便查看
+	outputPath := "example/data/bot-detection-screenshot.png"
+	// 确保目录存在
+	if err := os.MkdirAll("example/data", 0755); err != nil {
+		t.Fatalf("创建目录失败: %v", err)
+	}
 
 	code := `
 		var session = createBrowserSession(60);

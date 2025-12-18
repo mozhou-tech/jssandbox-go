@@ -101,11 +101,11 @@ func TestValidateIP(t *testing.T) {
 		t.Run(tc.ip, func(t *testing.T) {
 			code := `
 				var result = validateIP("` + tc.ip + `");
-				{
+				({
 					valid: result.valid,
 					isIPv4: result.isIPv4,
 					isIPv6: result.isIPv6
-				};
+				});
 			`
 
 			result, err := sb.Run(code)
