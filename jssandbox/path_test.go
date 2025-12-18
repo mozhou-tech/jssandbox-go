@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/dop251/goja"
 )
 
 func TestPathJoin(t *testing.T) {

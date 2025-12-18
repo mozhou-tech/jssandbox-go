@@ -3,8 +3,6 @@ package jssandbox
 import (
 	"context"
 	"testing"
-
-	"github.com/dop251/goja"
 )
 
 func TestEncodeBase64(t *testing.T) {

@@ -4,8 +4,6 @@ import (
 	"context"
 	"regexp"
 	"testing"
-
-	"github.com/dop251/goja"
 )
 
 func TestFormatDate(t *testing.T) {

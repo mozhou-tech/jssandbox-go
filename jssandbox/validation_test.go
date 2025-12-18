@@ -3,8 +3,6 @@ package jssandbox
 import (
 	"context"
 	"testing"
-
-	"github.com/dop251/goja"
 )
 
 func TestValidateEmail(t *testing.T) {
