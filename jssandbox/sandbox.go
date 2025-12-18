@@ -81,6 +81,7 @@ func (sb *Sandbox) registerExtensions() {
 	sb.registerProcess()    // 进程管理
 	sb.registerNetwork()    // 网络工具
 	sb.registerPath()       // 路径处理增强
+	sb.registerText()       // 文本操作
 
 	// 根据配置选择性注册功能
 	if sb.config.EnableHTTP {
