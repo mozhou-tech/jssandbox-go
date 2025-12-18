@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -26,7 +24,7 @@ func main() {
 	logrus.Info("初始化沙箱环境...")
 
 	// 配置沙箱（headless模式，不显示浏览器窗口）
-	config := jssandbox.DefaultConfig().WithHeadless(true)
+	config := jssandbox.DefaultConfig().WithHeadless(false)
 	sandbox := jssandbox.NewSandboxWithConfig(ctx, config)
 	defer sandbox.Close()
 	logrus.Info("沙箱环境初始化完成")
@@ -38,207 +36,37 @@ func main() {
 	}
 
 	fmt.Println(strings.Repeat("=", 80))
-	fmt.Println("开始爬取招标信息")
+	fmt.Println("提取页面Title")
 	fmt.Println(strings.Repeat("=", 80))
 	fmt.Printf("目标URL: %s\n", url)
-	fmt.Printf("会话超时: 120秒\n")
-	fmt.Printf("Headless模式: true\n\n")
+	fmt.Printf("会话超时: 120秒\n\n")
 	logrus.WithField("url", url).Debug("准备访问URL")
 
-	// 使用JavaScript代码进行爬取
+	// 使用JavaScript代码提取页面title
 	jsCode := fmt.Sprintf(`
 		(function() {
 		var session = createBrowserSession(120);
 		try {
+			console.log("[DEBUG] 开始导航...");
 			var navResult = session.navigate("%s");
+			console.log("[DEBUG] 导航结果:", JSON.stringify(navResult));
 			if (!navResult.success) throw new Error("导航失败: " + navResult.error);
-			session.wait(3);
+			console.log("[DEBUG] 导航成功，等待页面稳定...");
+			session.wait(2);
+			console.log("[DEBUG] 开始提取title...");
 			
-			var extractCode = "(function() {" +
-				"var baseUrl = window.location.protocol + '//' + window.location.host;" +
-				"var currentPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);" +
-				"var pathPatterns = [" +
-				"new RegExp('[\"\\']([/][^\"\\']*\\\\.(html|htm|jsp|aspx|php))[\"\\']', 'i')," +
-				"new RegExp('[\"\\']([/][^\"\\']*)[\"\\']', 'i')," +
-				"new RegExp('[\"\\']([^\"\\']*\\\\.(html|htm|jsp|aspx|php))[\"\\']', 'i')," +
-				"new RegExp('[\"\\']([^\"\\']*\\\\/(detail|info)[^\"\\']*)[\"\\']', 'i')" +
-				"];" +
-				"function buildFullUrl(href) {" +
-				"if (!href || href === '#' || /^javascript:/.test(href)) return '';" +
-				"if (/^https?:/.test(href)) return href;" +
-				"if (/^\\/\\//.test(href)) return window.location.protocol + href;" +
-				"if (/^\\//.test(href)) return baseUrl + href;" +
-				"return baseUrl + currentPath + href;" +
-				"}" +
-				"function extractPathFromOnclick(onclick) {" +
-				"if (!onclick) return null;" +
-				"for (var i = 0; i < pathPatterns.length; i++) {" +
-				"var match = onclick.match(pathPatterns[i]);" +
-				"if (match && match[1]) return match[1];" +
-				"}" +
-				"return null;" +
-				"}" +
-				"function extractLink(element) {" +
-				"if (!element) return '';" +
-				"var link = element.querySelector('a');" +
-				"if (link) {" +
-				"var href = link.href || link.getAttribute('href') || '';" +
-				"if (href && !/^#|^javascript:/.test(href)) return buildFullUrl(href);" +
-				"var path = extractPathFromOnclick(link.getAttribute('onclick'));" +
-				"if (path) return buildFullUrl(path);" +
-				"}" +
-				"var path = extractPathFromOnclick(element.getAttribute('onclick'));" +
-				"if (path) return buildFullUrl(path);" +
-				"var dataUrl = element.getAttribute('data-url') || element.getAttribute('data-href');" +
-				"if (dataUrl) return buildFullUrl(dataUrl);" +
-				"if (element.parentElement) {" +
-				"link = element.parentElement.querySelector('a');" +
-				"if (link) {" +
-				"href = link.href || link.getAttribute('href') || '';" +
-				"if (href && !/^#|^javascript:/.test(href)) return buildFullUrl(href);" +
-				"path = extractPathFromOnclick(link.getAttribute('onclick'));" +
-				"if (path) return buildFullUrl(path);" +
-				"}" +
-				"}" +
-				"return '';" +
-				"}" +
-				"function getTextContent(el) {" +
-				"return el ? (el.innerText || el.textContent || '').trim() : '';" +
-				"}" +
-				"var table = null;" +
-				"var selectors = ['table', '.table', '#dataTable', 'tbody', '[class*=\"table\"]', '[id*=\"table\"]', '[class*=\"list\"]'];" +
-				"for (var i = 0; i < selectors.length && !table; i++) {" +
-				"var els = document.querySelectorAll(selectors[i]);" +
-				"for (var j = 0; j < els.length; j++) {" +
-				"if (els[j].querySelectorAll('tr').length > 0) { table = els[j]; break; }" +
-				"}" +
-				"}" +
-				"var results = [];" +
-				"if (table) {" +
-				"var rows = table.querySelectorAll('tr');" +
-				"for (var i = 1; i < rows.length; i++) {" +
-				"var cells = rows[i].querySelectorAll('td, th');" +
-				"if (cells.length >= 2) {" +
-				"var projectCell = cells[1] || cells[0];" +
-				"var url = extractLink(projectCell) || extractLink(rows[i]);" +
-				"var project = getTextContent(cells[1]) || getTextContent(cells[0]);" +
-				"if (project) {" +
-				"results.push({" +
-				"index: getTextContent(cells[0]) || i.toString()," +
-				"project: project," +
-				"section: cells.length > 2 ? getTextContent(cells[2]) : ''," +
-				"region: cells.length > 3 ? getTextContent(cells[3]) : ''," +
-				"publishTime: cells.length > 4 ? getTextContent(cells[4]) : ''," +
-				"url: url" +
-				"});" +
-				"}" +
-				"}" +
-				"}" +
-				"} else {" +
-				"var linkSelectors = ['a[href*=\"trade\"]', 'a[href*=\"bid\"]', 'a[href*=\"tender\"]', 'a[href*=\"detail\"]', 'a[href*=\"info\"]'];" +
-				"var allLinks = [];" +
-				"for (var i = 0; i < linkSelectors.length; i++) {" +
-				"var links = document.querySelectorAll(linkSelectors[i]);" +
-				"for (var j = 0; j < links.length; j++) allLinks.push(links[j]);" +
-				"}" +
-				"for (var i = 0; i < allLinks.length; i++) {" +
-				"var link = allLinks[i];" +
-				"var parent = link.parentElement;" +
-				"while (parent && parent !== document.body) {" +
-				"if (parent.tagName === 'TR' || parent.tagName === 'LI' || parent.tagName === 'DIV' || parent.tagName === 'TD') break;" +
-				"parent = parent.parentElement;" +
-				"}" +
-				"if (parent) {" +
-				"var text = getTextContent(parent);" +
-				"if (text.length > 10) {" +
-				"var href = link.href || link.getAttribute('href') || '';" +
-				"results.push({" +
-				"index: (results.length + 1).toString()," +
-				"project: getTextContent(link) || text.substring(0, 50)," +
-				"section: ''," +
-				"region: ''," +
-				"publishTime: ''," +
-				"url: buildFullUrl(href)" +
-				"});" +
-				"}" +
-				"}" +
-				"}" +
-				"return results;" +
-				"})();";
+			var titleResult = session.evaluate("document.title");
+			if (!titleResult.success) throw new Error("提取title失败: " + titleResult.error);
 			
-			var extractResult = session.evaluate(extractCode);
-			if (!extractResult.success) throw new Error("提取数据失败: " + extractResult.error);
-			var bidInfos = extractResult.result;
+			var title = titleResult.result || "";
+			console.log("[DEBUG] 提取到的title:", title);
 			
-			if (!bidInfos || bidInfos.length === 0) {
-				var backupCode = "(function() {" +
-					"var baseUrl = window.location.protocol + '//' + window.location.host;" +
-					"var currentPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);" +
-					"var pathPatterns = [" +
-					"new RegExp('[\"\\']([/][^\"\\']*\\\\.(html|htm|jsp|aspx|php))[\"\\']', 'i')," +
-					"new RegExp('[\"\\']([/][^\"\\']*)[\"\\']', 'i')," +
-					"new RegExp('[\"\\']([^\"\\']*\\\\.(html|htm|jsp|aspx|php))[\"\\']', 'i')" +
-					"];" +
-					"function buildFullUrl(href) {" +
-					"if (!href || href === '#' || /^javascript:/.test(href)) return '';" +
-					"if (/^https?:/.test(href)) return href;" +
-					"if (/^\\/\\//.test(href)) return window.location.protocol + href;" +
-					"if (/^\\//.test(href)) return baseUrl + href;" +
-					"return baseUrl + currentPath + href;" +
-					"}" +
-					"function extractPathFromOnclick(onclick) {" +
-					"if (!onclick) return null;" +
-					"for (var i = 0; i < pathPatterns.length; i++) {" +
-					"var match = onclick.match(pathPatterns[i]);" +
-					"if (match && match[1]) return match[1];" +
-					"}" +
-					"return null;" +
-					"}" +
-					"function extractLink(element) {" +
-					"if (!element) return '';" +
-					"var link = element.querySelector('a');" +
-					"if (link) {" +
-					"var href = link.href || link.getAttribute('href') || '';" +
-					"if (href && !/^#|^javascript:/.test(href)) return buildFullUrl(href);" +
-					"var path = extractPathFromOnclick(link.getAttribute('onclick'));" +
-					"if (path) return buildFullUrl(path);" +
-					"}" +
-					"var path = extractPathFromOnclick(element.getAttribute('onclick'));" +
-					"if (path) return buildFullUrl(path);" +
-					"return '';" +
-					"}" +
-					"var keywords = ['项目', '招标', '采购', '工程', '公告'];" +
-					"var elements = document.querySelectorAll('tr, .item, .list-item, [class*=\"row\"], [class*=\"item\"]');" +
-					"var results = [];" +
-					"for (var i = 0; i < Math.min(elements.length, 30); i++) {" +
-					"var text = (elements[i].innerText || elements[i].textContent || '').trim();" +
-					"if (text.length > 20 && text.length < 500) {" +
-					"var hasKeyword = false;" +
-					"for (var j = 0; j < keywords.length; j++) {" +
-					"if (text.indexOf(keywords[j]) >= 0) { hasKeyword = true; break; }" +
-					"}" +
-					"if (hasKeyword) {" +
-					"results.push({" +
-					"index: (results.length + 1).toString()," +
-					"project: text.substring(0, 100).trim()," +
-					"section: ''," +
-					"region: ''," +
-					"publishTime: ''," +
-					"url: extractLink(elements[i])" +
-					"});" +
-					"}" +
-					"}" +
-					"}" +
-					"return results;" +
-					"})();";
-				var backupResult = session.evaluate(backupCode);
-				if (backupResult.success && backupResult.result) bidInfos = backupResult.result;
-			}
-			
-			return { success: true, data: bidInfos || [], count: bidInfos ? bidInfos.length : 0 };
+			return { success: true, title: title };
 		} catch (error) {
-			return { success: false, error: error.message || String(error), data: [], count: 0 };
+			console.error("[ERROR] 发生异常:", error.message || String(error));
+			return { success: false, error: error.message || String(error) };
 		} finally {
+			console.log("[DEBUG] 关闭浏览器会话");
 			session.close();
 		}
 		})();
@@ -246,12 +74,24 @@ func main() {
 
 	logrus.Info("开始执行 JavaScript 代码...")
 	logrus.WithField("code_length", len(jsCode)).Debug("JavaScript代码长度")
-	result, err := sandbox.Run(jsCode)
+
+	// 使用超时执行，避免程序卡住（150秒超时，给浏览器足够时间）
+	result, err := sandbox.RunWithTimeout(jsCode, 150*time.Second)
 	if err != nil {
 		logrus.WithError(err).WithField("error_type", fmt.Sprintf("%T", err)).Error("执行代码失败")
 		fmt.Printf("\n执行错误详情:\n")
 		fmt.Printf("  错误类型: %T\n", err)
 		fmt.Printf("  错误信息: %v\n", err)
+
+		// 检查是否是超时错误
+		if strings.Contains(err.Error(), "timeout") || strings.Contains(err.Error(), "超时") {
+			fmt.Printf("\n💡 提示: 执行超时，可能是页面加载时间过长或网络问题\n")
+			fmt.Printf("   建议:\n")
+			fmt.Printf("   1. 检查网络连接\n")
+			fmt.Printf("   2. 尝试增加超时时间\n")
+			fmt.Printf("   3. 检查目标网站是否可以正常访问\n")
+		}
+
 		logrus.Fatal("执行代码失败")
 	}
 	logrus.Debug("JavaScript代码执行完成，开始解析结果")
@@ -302,107 +142,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	logrus.Info("执行成功，开始处理数据...")
+	logrus.Info("执行成功，开始处理结果...")
 
-	data := resultMap["data"]
-	var count float64
-	if countVal, ok := resultMap["count"].(float64); ok {
-		count = countVal
-	} else if countVal, ok := resultMap["count"].(int64); ok {
-		count = float64(countVal)
-	} else if countVal, ok := resultMap["count"].(int); ok {
-		count = float64(countVal)
+	// 获取title
+	title, ok := resultMap["title"].(string)
+	if !ok {
+		title = ""
 	}
 
-	fmt.Printf("成功爬取 %d 条招标信息\n\n", int(count))
-
-	// 获取当前工作目录
-	wd, err := os.Getwd()
-	if err != nil {
-		logrus.WithError(err).Fatal("获取工作目录失败")
-	}
-
-	// 查找 example 目录
-	var dataDir string
-	currentDir := wd
-
-	// 向上查找 example 目录，最多向上查找5级
-	for i := 0; i < 5; i++ {
-		testPath := filepath.Join(currentDir, "example", "data")
-		examplePath := filepath.Join(currentDir, "example")
-
-		// 检查 example 目录是否存在
-		if info, err := os.Stat(examplePath); err == nil && info.IsDir() {
-			dataDir = testPath
-			break
-		}
-
-		// 向上查找
-		parent := filepath.Dir(currentDir)
-		if parent == currentDir {
-			// 已经到达根目录
-			break
-		}
-		currentDir = parent
-	}
-
-	// 如果没找到，使用当前目录下的 example/data
-	if dataDir == "" {
-		dataDir = filepath.Join(wd, "example", "data")
-		logrus.WithField("path", dataDir).Warn("未找到项目根目录，使用当前目录")
-	}
-
-	// 确保 data 目录存在
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		logrus.WithError(err).WithField("path", dataDir).Fatal("创建data目录失败")
-	}
-
-	logrus.WithField("path", dataDir).Debug("数据目录路径")
-
-	// 将数据转换为JSON格式
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		logrus.WithError(err).Fatal("JSON序列化失败")
-	}
-
-	// 保存到文件
-	outputFile := filepath.Join(dataDir, fmt.Sprintf("bid_info_%s.json", time.Now().Format("20060102_150405")))
-	err = os.WriteFile(outputFile, jsonData, 0644)
-	if err != nil {
-		logrus.WithError(err).Fatal("保存文件失败")
-	}
-
-	fmt.Printf("数据已保存到: %s\n\n", outputFile)
-
-	// 打印前几条数据作为预览
-	if dataArray, ok := data.([]interface{}); ok && len(dataArray) > 0 {
-		fmt.Println("数据预览（前5条）:")
-		fmt.Println(strings.Repeat("=", 80))
-		for i, item := range dataArray {
-			if i >= 5 {
-				break
-			}
-			if itemMap, ok := item.(map[string]interface{}); ok {
-				fmt.Printf("\n[%d]\n", i+1)
-				if project, ok := itemMap["project"].(string); ok {
-					fmt.Printf("  项目名称: %s\n", project)
-				}
-				if section, ok := itemMap["section"].(string); ok && section != "" {
-					fmt.Printf("  标段名称: %s\n", section)
-				}
-				if region, ok := itemMap["region"].(string); ok && region != "" {
-					fmt.Printf("  所在地区: %s\n", region)
-				}
-				if publishTime, ok := itemMap["publishTime"].(string); ok && publishTime != "" {
-					fmt.Printf("  发布时间: %s\n", publishTime)
-				}
-				if url, ok := itemMap["url"].(string); ok && url != "" {
-					fmt.Printf("  详情链接: %s\n", url)
-				}
-			}
-		}
-		fmt.Println("\n" + strings.Repeat("=", 80))
-	}
+	fmt.Println(strings.Repeat("=", 80))
+	fmt.Printf("页面Title: %s\n", title)
+	fmt.Println(strings.Repeat("=", 80))
 }
 
 // getMapKeys 获取 map 的所有键，用于调试

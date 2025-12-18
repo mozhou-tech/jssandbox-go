@@ -34,8 +34,8 @@ func main() {
 	defer sandbox.Close()
 	logrus.Info("沙箱环境初始化完成")
 
-	// 从命令行参数获取API URL，如果没有则使用示例API
-	apiURL := "https://jsonplaceholder.typicode.com/posts"
+	// 从命令行参数获取API URL，如果没有则使用默认API
+	apiURL := "http://jsggzy.jszwfw.gov.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew"
 	if len(os.Args) > 1 {
 		apiURL = os.Args[1]
 	}
@@ -46,151 +46,66 @@ func main() {
 	fmt.Printf("API URL: %s\n", apiURL)
 	fmt.Printf("HTTP超时: 30秒\n\n")
 
-	// 示例1: 使用 httpGet 简单GET请求
-	fmt.Println("示例1: 使用 httpGet 获取数据")
+	// 示例3: 使用 httpRequest 发送POST请求（带完整请求头）
+	fmt.Println("示例: 使用 httpRequest 发送POST请求")
 	fmt.Println(strings.Repeat("-", 80))
-	example1(sandbox, apiURL)
-
-	// 示例2: 使用 httpRequest 带自定义headers的GET请求
-	fmt.Println("\n示例2: 使用 httpRequest 带自定义headers")
-	fmt.Println(strings.Repeat("-", 80))
-	example2(sandbox, apiURL)
-
-	// 示例3: 使用 httpPost 发送POST请求
-	fmt.Println("\n示例3: 使用 httpPost 发送数据")
-	fmt.Println(strings.Repeat("-", 80))
-	example3(sandbox, "https://jsonplaceholder.typicode.com/posts")
-
-	// 示例4: 使用 httpRequest 完整配置
-	fmt.Println("\n示例4: 使用 httpRequest 完整配置")
-	fmt.Println(strings.Repeat("-", 80))
-	example4(sandbox, apiURL)
+	example3(sandbox, apiURL)
 }
 
-// 示例1: 简单的GET请求
-func example1(sandbox *jssandbox.Sandbox, url string) {
-	jsCode := fmt.Sprintf(`
-		(function() {
-			try {
-				console.log("[INFO] 开始发送GET请求...");
-				var result = httpGet("%s");
-				
-				if (result.error) {
-					return {
-						success: false,
-						error: result.error
-					};
-				}
-				
-				console.log("[INFO] 请求成功，状态码:", result.status);
-				console.log("[INFO] 响应体长度:", result.body ? result.body.length : 0);
-				
-				// 尝试解析JSON
-				var data = null;
-				try {
-					data = JSON.parse(result.body);
-				} catch (e) {
-					console.log("[WARN] 响应不是有效的JSON格式");
-				}
-				
-				return {
-					success: true,
-					status: result.status,
-					statusText: result.statusText,
-					contentType: result.contentType,
-					data: data,
-					bodyLength: result.body ? result.body.length : 0
-				};
-			} catch (error) {
-				return {
-					success: false,
-					error: error.message || String(error)
-				};
-			}
-		})();
-	`, url)
-
-	result, err := sandbox.Run(jsCode)
-	if err != nil {
-		logrus.WithError(err).Error("执行失败")
-		return
-	}
-
-	printResult(sandbox, result)
-}
-
-// 示例2: 带自定义headers的GET请求
-func example2(sandbox *jssandbox.Sandbox, url string) {
-	jsCode := fmt.Sprintf(`
-		(function() {
-			try {
-				console.log("[INFO] 开始发送带自定义headers的GET请求...");
-				var result = httpRequest("%s", {
-					method: "GET",
-					headers: {
-						"User-Agent": "jssandbox-http-client/1.0",
-						"Accept": "application/json",
-						"Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
-					},
-					timeout: 30
-				});
-				
-				if (result.error) {
-					return {
-						success: false,
-						error: result.error
-					};
-				}
-				
-				console.log("[INFO] 请求成功，状态码:", result.status);
-				
-				// 解析JSON数组
-				var data = null;
-				try {
-					data = JSON.parse(result.body);
-					console.log("[INFO] 解析到", Array.isArray(data) ? data.length : 1, "条数据");
-				} catch (e) {
-					console.log("[WARN] 响应不是有效的JSON格式");
-				}
-				
-				return {
-					success: true,
-					status: result.status,
-					data: data,
-					dataCount: Array.isArray(data) ? data.length : (data ? 1 : 0)
-				};
-			} catch (error) {
-				return {
-					success: false,
-					error: error.message || String(error)
-				};
-			}
-		})();
-	`, url)
-
-	result, err := sandbox.Run(jsCode)
-	if err != nil {
-		logrus.WithError(err).Error("执行失败")
-		return
-	}
-
-	printResult(sandbox, result)
-}
-
-// 示例3: POST请求
+// 示例3: POST请求（带完整请求头）
 func example3(sandbox *jssandbox.Sandbox, url string) {
 	jsCode := fmt.Sprintf(`
 		(function() {
 			try {
 				console.log("[INFO] 开始发送POST请求...");
 				
+				var sortObj = {"infodatepx": "0"};
 				var postData = {
-					title: "测试标题",
-					body: "这是测试内容",
-					userId: 1
+					"token": "",
+					"pn": 0,
+					"rn": 20,
+					"sdt": "",
+					"edt": "",
+					"wd": "",
+					"inc_wd": "",
+					"exc_wd": "",
+					"fields": "title",
+					"cnum": "001",
+					"sort": JSON.stringify(sortObj),
+					"ssort": "title",
+					"cl": 200,
+					"terminal": "",
+					"condition": [],
+					"time": [{
+						"fieldName": "infodatepx",
+						"startTime": "2025-12-15 00:00:00",
+						"endTime": "2025-12-18 23:59:59"
+					}],
+					"highlights": "title",
+					"statistics": null,
+					"unionCondition": [],
+					"accuracy": "",
+					"noParticiple": "1",
+					"searchRange": null,
+					"isBusiness": "1"
 				};
 				
-				var result = httpPost("%s", JSON.stringify(postData));
+				var result = httpRequest("%s", {
+					method: "POST",
+					headers: {
+						"Accept": "application/json, text/javascript, */*; q=0.01",
+						"Accept-Encoding": "gzip, deflate",
+						"Accept-Language": "zh,en-US;q=0.9,en;q=0.8,zh-CN;q=0.7",
+						"Connection": "keep-alive",
+						"Content-Type": "application/json;charset=UTF-8",
+						"Origin": "http://jsggzy.jszwfw.gov.cn",
+						"Referer": "http://jsggzy.jszwfw.gov.cn/jyxx/tradeInfonew.html",
+						"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+						"X-Requested-With": "XMLHttpRequest"
+					},
+					body: JSON.stringify(postData),
+					timeout: 30
+				});
 				
 				if (result.error) {
 					return {
@@ -205,7 +120,25 @@ func example3(sandbox *jssandbox.Sandbox, url string) {
 				var responseData = null;
 				try {
 					responseData = JSON.parse(result.body);
-					console.log("[INFO] 创建的资源ID:", responseData.id);
+					console.log("[INFO] 响应数据解析成功");
+					
+					// 补全URL
+					var baseUrl = "http://jsggzy.jszwfw.gov.cn";
+					if (responseData.result && responseData.result.records && Array.isArray(responseData.result.records)) {
+						console.log("[INFO] 查询到", responseData.result.records.length, "条数据");
+						for (var i = 0; i < responseData.result.records.length; i++) {
+							var record = responseData.result.records[i];
+							if (record.linkurl && record.linkurl.indexOf("http") !== 0) {
+								// 如果是相对路径，补全为完整URL
+								if (record.linkurl.indexOf("/") === 0) {
+									record.linkurl = baseUrl + record.linkurl;
+								} else {
+									record.linkurl = baseUrl + "/" + record.linkurl;
+								}
+							}
+						}
+						console.log("[INFO] URL补全完成");
+					}
 				} catch (e) {
 					console.log("[WARN] 响应不是有效的JSON格式");
 				}
@@ -213,96 +146,11 @@ func example3(sandbox *jssandbox.Sandbox, url string) {
 				return {
 					success: true,
 					status: result.status,
+					statusText: result.statusText,
+					contentType: result.contentType,
 					data: responseData
 				};
 			} catch (error) {
-				return {
-					success: false,
-					error: error.message || String(error)
-				};
-			}
-		})();
-	`, url)
-
-	result, err := sandbox.Run(jsCode)
-	if err != nil {
-		logrus.WithError(err).Error("执行失败")
-		return
-	}
-
-	printResult(sandbox, result)
-}
-
-// 示例4: 使用 httpRequest 完整配置（包括错误处理）
-func example4(sandbox *jssandbox.Sandbox, url string) {
-	jsCode := fmt.Sprintf(`
-		(function() {
-			try {
-				console.log("[INFO] 开始发送完整配置的HTTP请求...");
-				
-				var result = httpRequest("%s", {
-					method: "GET",
-					headers: {
-						"User-Agent": "jssandbox-http-client/1.0",
-						"Accept": "application/json"
-					},
-					timeout: 30
-				});
-				
-				if (result.error) {
-					console.error("[ERROR] 请求失败:", result.error);
-					return {
-						success: false,
-						error: result.error,
-						status: result.status || 0
-					};
-				}
-				
-				// 检查HTTP状态码
-				if (result.status < 200 || result.status >= 300) {
-					console.warn("[WARN] HTTP状态码异常:", result.status);
-					return {
-						success: false,
-						error: "HTTP错误: " + result.statusText,
-						status: result.status
-					};
-				}
-				
-				console.log("[INFO] 请求成功");
-				console.log("[INFO] Content-Type:", result.contentType);
-				console.log("[INFO] 响应头数量:", Object.keys(result.headers || {}).length);
-				
-				// 解析JSON数据
-				var data = null;
-				var isArray = false;
-				try {
-					data = JSON.parse(result.body);
-					isArray = Array.isArray(data);
-					console.log("[INFO] 数据类型:", isArray ? "数组" : "对象");
-					console.log("[INFO] 数据条数:", isArray ? data.length : 1);
-				} catch (e) {
-					console.log("[WARN] 响应不是JSON格式，返回原始文本");
-					data = result.body;
-				}
-				
-				// 如果是数组，提取前几条数据作为预览
-				var preview = null;
-				if (isArray && data.length > 0) {
-					preview = data.slice(0, Math.min(3, data.length));
-				}
-				
-				return {
-					success: true,
-					status: result.status,
-					statusText: result.statusText,
-					contentType: result.contentType,
-					headers: result.headers,
-					data: data,
-					preview: preview,
-					totalCount: isArray ? data.length : (data ? 1 : 0)
-				};
-			} catch (error) {
-				console.error("[ERROR] 发生异常:", error.message);
 				return {
 					success: false,
 					error: error.message || String(error)

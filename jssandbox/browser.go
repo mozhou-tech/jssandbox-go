@@ -135,11 +135,9 @@ func (sb *Sandbox) createBrowserSession(timeoutSeconds float64) *BrowserSession 
 		timeout: timeout,
 	}
 
-	// 初始化浏览器，注入反检测脚本
-	go func() {
-		_ = chromedp.Run(ctx, injectStealthScript())
-	}()
-
+	// chromedp.NewContext 创建后，浏览器会在第一次执行操作时自动启动
+	// 不需要提前初始化，让第一次导航时自动触发浏览器启动
+	// 这样可以避免上下文管理问题
 	return session
 }
 
@@ -165,100 +163,83 @@ func (bs *BrowserSession) Navigate(url string) map[string]interface{} {
 		}
 	}
 
-	// 先执行导航
 	bs.sb.logger.WithField("url", url).Debug("开始导航到页面")
 
-	// 创建导航超时上下文（30秒）
-	navCtx, navCancel := context.WithTimeout(bs.ctx, 30*time.Second)
-	defer navCancel()
-
-	err := chromedp.Run(navCtx, chromedp.Navigate(url))
+	// 执行导航（使用会话的上下文，会话已经有超时设置）
+	// chromedp.Navigate 会自动等待浏览器准备好
+	// 第一次执行时会自动启动浏览器进程
+	err := chromedp.Run(bs.ctx,
+		// 先等待一小段时间，确保浏览器进程已启动（如果是第一次）
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			time.Sleep(500 * time.Millisecond)
+			return nil
+		}),
+		chromedp.Navigate(url),
+	)
 	if err != nil {
 		bs.sb.logger.WithError(err).WithField("url", url).Error("浏览器导航失败")
+		// 检查当前URL，看是否至少导航到了某个页面
+		var currentURL string
+		if getURLErr := chromedp.Run(bs.ctx, chromedp.Location(&currentURL)); getURLErr == nil {
+			bs.sb.logger.WithField("url", url).WithField("currentURL", currentURL).Debug("导航失败后的当前URL")
+			if currentURL != "" && currentURL != "about:blank" {
+				// 如果已经导航到某个页面（即使不是目标页面），也算部分成功
+				return map[string]interface{}{
+					"success": true,
+					"url":     currentURL,
+				}
+			}
+		}
 		return map[string]interface{}{
 			"success": false,
 			"error":   "导航失败: " + err.Error(),
 		}
 	}
+
 	bs.sb.logger.WithField("url", url).Debug("导航命令已执行，等待页面加载")
 
-	// 等待页面加载完成 - 使用更可靠的策略
-	// 1. 先等待 DOMContentLoaded 事件
-	waitCtx, waitCancel := context.WithTimeout(bs.ctx, 30*time.Second)
+	// 等待页面加载完成（使用较短的超时，避免阻塞太久）
+	waitCtx, waitCancel := context.WithTimeout(bs.ctx, 20*time.Second)
 	defer waitCancel()
 
-	// 等待页面就绪（DOMContentLoaded）
+	// 等待body元素出现，并检查URL是否改变
+	var currentURL string
 	err = chromedp.Run(waitCtx,
 		chromedp.WaitReady("body", chromedp.ByQuery),
+		chromedp.Location(&currentURL),
 	)
+
 	if err != nil {
-		bs.sb.logger.WithError(err).WithField("url", url).Warn("等待body元素超时，尝试继续")
-	} else {
-		bs.sb.logger.WithField("url", url).Debug("页面body元素已就绪")
+		bs.sb.logger.WithError(err).WithField("url", url).Warn("等待页面加载超时，尝试获取当前URL")
+		// 即使等待失败，也尝试获取URL
+		_ = chromedp.Run(bs.ctx, chromedp.Location(&currentURL))
 	}
 
-	// 2. 等待一小段时间让JavaScript执行
-	err = chromedp.Run(bs.ctx, chromedp.Sleep(1*time.Second))
-	if err != nil {
-		bs.sb.logger.WithError(err).WithField("url", url).Warn("等待页面脚本执行时出错")
-	}
+	bs.sb.logger.WithField("url", url).WithField("currentURL", currentURL).Debug("导航后的当前URL")
 
-	// 3. 尝试等待网络空闲（可选，如果页面还在加载资源）
-	// 使用JavaScript检查页面加载状态
-	networkIdleCtx, networkIdleCancel := context.WithTimeout(bs.ctx, 10*time.Second)
-	defer networkIdleCancel()
+	// 检查是否还在 about:blank
+	if currentURL == "about:blank" {
+		bs.sb.logger.WithField("url", url).Warn("导航后仍在 about:blank，尝试重新导航...")
 
-	// 检查页面是否加载完成
-	var pageReady bool
-	err = chromedp.Run(networkIdleCtx,
-		chromedp.Evaluate(`
-			(function() {
-				if (document.readyState === 'complete') {
-					return true;
-				}
-				// 检查是否有正在进行的网络请求（通过performance API）
-				if (window.performance && window.performance.getEntriesByType) {
-					var entries = window.performance.getEntriesByType('resource');
-					// 如果最近1秒内没有新的资源加载，认为页面已就绪
-					var now = Date.now();
-					var recentLoads = entries.filter(function(entry) {
-						return (now - entry.responseEnd) < 1000;
-					});
-					return recentLoads.length === 0;
-				}
-				return document.readyState === 'interactive' || document.readyState === 'complete';
-			})();
-		`, &pageReady),
-	)
-	if err != nil {
-		bs.sb.logger.WithError(err).WithField("url", url).Debug("检查页面就绪状态时出错，继续执行")
-	} else if pageReady {
-		bs.sb.logger.WithField("url", url).Debug("页面加载完成")
-	} else {
-		bs.sb.logger.WithField("url", url).Debug("页面可能仍在加载中，继续执行")
-	}
+		// 再次尝试导航（使用较短的超时）
+		retryCtx, retryCancel := context.WithTimeout(bs.ctx, 20*time.Second)
+		defer retryCancel()
 
-	// 注入反检测脚本
-	err = chromedp.Run(bs.ctx, injectStealthScript())
-	if err != nil {
-		bs.sb.logger.WithError(err).WithField("url", url).Warn("注入反检测脚本失败，但继续执行")
-		// 注入脚本失败不影响导航结果
-	}
+		err = chromedp.Run(retryCtx,
+			chromedp.Navigate(url),
+			chromedp.WaitReady("body", chromedp.ByQuery),
+			chromedp.Location(&currentURL),
+		)
 
-	// 验证导航是否成功 - 检查当前URL
-	var currentURL string
-	err = chromedp.Run(bs.ctx, chromedp.Location(&currentURL))
-	if err != nil {
-		bs.sb.logger.WithError(err).WithField("url", url).Warn("无法获取当前URL")
-		return map[string]interface{}{
-			"success": false,
-			"error":   "无法获取当前URL: " + err.Error(),
+		if err != nil || currentURL == "about:blank" {
+			bs.sb.logger.WithField("url", url).Error("重新导航后仍停留在 about:blank")
+			return map[string]interface{}{
+				"success": false,
+				"error":   "导航失败: 页面停留在 about:blank，可能是浏览器未正确初始化或网络问题",
+			}
 		}
 	}
 
-	bs.sb.logger.WithField("url", url).WithField("currentURL", currentURL).Debug("导航完成，当前URL")
-
-	// 检查URL是否匹配（允许重定向）
 	if currentURL == "" {
 		bs.sb.logger.WithField("url", url).Error("当前URL为空")
 		return map[string]interface{}{
@@ -266,6 +247,27 @@ func (bs *BrowserSession) Navigate(url string) map[string]interface{} {
 			"error":   "导航后URL为空",
 		}
 	}
+
+	// 等待页面readyState至少为interactive
+	readyCtx, readyCancel := context.WithTimeout(bs.ctx, 10*time.Second)
+	var readyState string
+	_ = chromedp.Run(readyCtx, chromedp.Evaluate("document.readyState", &readyState))
+	readyCancel()
+	if readyState == "complete" || readyState == "interactive" {
+		bs.sb.logger.WithField("url", url).WithField("readyState", readyState).Debug("页面状态就绪")
+	}
+
+	// 等待一小段时间让JavaScript执行
+	_ = chromedp.Run(bs.ctx, chromedp.Sleep(1*time.Second))
+
+	bs.sb.logger.WithField("url", url).Debug("页面基本加载完成")
+
+	// 注入反检测脚本（失败不影响导航结果）
+	_ = chromedp.Run(bs.ctx, injectStealthScript())
+
+	// 再次确认URL（防止在等待过程中URL改变）
+	_ = chromedp.Run(bs.ctx, chromedp.Location(&currentURL))
+	bs.sb.logger.WithField("url", url).WithField("currentURL", currentURL).Debug("导航完成，最终URL")
 
 	return map[string]interface{}{
 		"success": true,
