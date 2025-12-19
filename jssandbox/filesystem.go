@@ -372,6 +372,61 @@ func (sb *Sandbox) registerFileSystem() {
 			"success": true,
 		}
 	})
+
+	// 创建临时文件
+	sb.vm.Set("createTempFile", func(call goja.FunctionCall) goja.Value {
+		dir := ""
+		pattern := ""
+
+		if len(call.Arguments) > 0 {
+			options := call.Arguments[0].ToObject(sb.vm)
+			if dirVal := options.Get("dir"); dirVal != nil && !goja.IsUndefined(dirVal) {
+				dir = dirVal.String()
+			}
+			if patternVal := options.Get("pattern"); patternVal != nil && !goja.IsUndefined(patternVal) {
+				pattern = patternVal.String()
+			}
+		}
+
+		// 如果没有指定目录，使用系统临时目录
+		if dir == "" {
+			dir = os.TempDir()
+		}
+
+		// 如果没有指定模式，使用默认模式
+		if pattern == "" {
+			pattern = "temp-*.tmp"
+		}
+
+		file, err := os.CreateTemp(dir, pattern)
+		if err != nil {
+			return sb.vm.ToValue(map[string]interface{}{
+				"success": false,
+				"error":   err.Error(),
+			})
+		}
+		defer file.Close()
+
+		filePath := file.Name()
+		return sb.vm.ToValue(map[string]interface{}{
+			"success": true,
+			"path":    filePath,
+		})
+	})
+
+	// 删除文件
+	sb.vm.Set("deleteFile", func(filePath string) map[string]interface{} {
+		err := os.Remove(filePath)
+		if err != nil {
+			return map[string]interface{}{
+				"success": false,
+				"error":   err.Error(),
+			}
+		}
+		return map[string]interface{}{
+			"success": true,
+		}
+	})
 }
 
 // getFileType 根据扩展名返回文件类型

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/dop251/goja"
@@ -465,6 +466,169 @@ func TestFileSystem_ErrorHandling(t *testing.T) {
 		errorVal := resultObj.Get("error")
 		if errorVal == nil || goja.IsUndefined(errorVal) {
 			t.Error("获取不存在文件信息应该返回错误")
+		}
+	})
+}
+
+func TestCreateTempFile(t *testing.T) {
+	ctx := context.Background()
+	sb := NewSandbox(ctx)
+	defer sb.Close()
+
+	t.Run("创建默认临时文件", func(t *testing.T) {
+		code := `
+			var result = createTempFile();
+			result;
+		`
+
+		result, err := sb.Run(code)
+		if err != nil {
+			t.Fatalf("createTempFile() error = %v", err)
+		}
+
+		resultObj := result.ToObject(sb.vm)
+		success := resultObj.Get("success")
+		if !success.ToBoolean() {
+			t.Error("createTempFile()应该返回success: true")
+		}
+
+		path := resultObj.Get("path")
+		if path.String() == "" {
+			t.Error("createTempFile()应该返回文件路径")
+		}
+
+		// 验证文件确实被创建
+		if _, err := os.Stat(path.String()); os.IsNotExist(err) {
+			t.Error("临时文件应该被创建")
+		}
+
+		// 清理
+		os.Remove(path.String())
+	})
+
+	t.Run("创建带模式的临时文件", func(t *testing.T) {
+		code := `
+			var result = createTempFile({
+				pattern: "test-*.txt"
+			});
+			result;
+		`
+
+		result, err := sb.Run(code)
+		if err != nil {
+			t.Fatalf("createTempFile() error = %v", err)
+		}
+
+		resultObj := result.ToObject(sb.vm)
+		success := resultObj.Get("success")
+		if !success.ToBoolean() {
+			t.Error("createTempFile()应该返回success: true")
+		}
+
+		path := resultObj.Get("path")
+		if path.String() == "" {
+			t.Error("createTempFile()应该返回文件路径")
+		}
+
+		// 验证文件名包含模式
+		if !strings.Contains(filepath.Base(path.String()), "test-") {
+			t.Error("临时文件名应该包含模式前缀")
+		}
+
+		// 清理
+		os.Remove(path.String())
+	})
+
+	t.Run("在指定目录创建临时文件", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		code := `
+			var result = createTempFile({
+				dir: "` + tempDir + `",
+				pattern: "custom-*.tmp"
+			});
+			result;
+		`
+
+		result, err := sb.Run(code)
+		if err != nil {
+			t.Fatalf("createTempFile() error = %v", err)
+		}
+
+		resultObj := result.ToObject(sb.vm)
+		success := resultObj.Get("success")
+		if !success.ToBoolean() {
+			t.Error("createTempFile()应该返回success: true")
+		}
+
+		path := resultObj.Get("path")
+		filePath := path.String()
+
+		// 验证文件在指定目录中
+		if !strings.HasPrefix(filePath, tempDir) {
+			t.Errorf("临时文件应该在指定目录中, got %s, want prefix %s", filePath, tempDir)
+		}
+
+		// 验证文件确实被创建
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Error("临时文件应该被创建")
+		}
+	})
+}
+
+func TestDeleteFile(t *testing.T) {
+	ctx := context.Background()
+	sb := NewSandbox(ctx)
+	defer sb.Close()
+
+	t.Run("删除存在的文件", func(t *testing.T) {
+		testFile := filepath.Join(t.TempDir(), "test.txt")
+		os.WriteFile(testFile, []byte("test content"), 0644)
+
+		code := `
+			var result = deleteFile("` + testFile + `");
+			result;
+		`
+
+		result, err := sb.Run(code)
+		if err != nil {
+			t.Fatalf("deleteFile() error = %v", err)
+		}
+
+		resultObj := result.ToObject(sb.vm)
+		success := resultObj.Get("success")
+		if !success.ToBoolean() {
+			t.Error("deleteFile()应该返回success: true")
+		}
+
+		// 验证文件确实被删除
+		if _, err := os.Stat(testFile); !os.IsNotExist(err) {
+			t.Error("文件应该被删除")
+		}
+	})
+
+	t.Run("删除不存在的文件", func(t *testing.T) {
+		nonExistentFile := filepath.Join(t.TempDir(), "nonexistent.txt")
+
+		code := `
+			var result = deleteFile("` + nonExistentFile + `");
+			result;
+		`
+
+		result, err := sb.Run(code)
+		if err != nil {
+			t.Fatalf("deleteFile() error = %v", err)
+		}
+
+		resultObj := result.ToObject(sb.vm)
+		success := resultObj.Get("success")
+		if success.ToBoolean() {
+			t.Error("删除不存在文件应该返回success: false")
+		}
+
+		errorVal := resultObj.Get("error")
+		if errorVal == nil || goja.IsUndefined(errorVal) {
+			t.Error("删除不存在文件应该返回错误")
 		}
 	})
 }
