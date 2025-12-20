@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
+	"github.com/mozhou-tech/jssandbox-go/jssandbox"
 	"github.com/sirupsen/logrus"
-	"github.com/supacloud/jssandbox-go/jssandbox"
 )
 
 func main() {

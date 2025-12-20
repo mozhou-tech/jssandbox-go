@@ -6,9 +6,9 @@ BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # 构建标志
-LDFLAGS = -X github.com/supacloud/jssandbox-go/jssandbox.Version=$(VERSION) \
-          -X github.com/supacloud/jssandbox-go/jssandbox.BuildTime=$(BUILD_TIME) \
-          -X github.com/supacloud/jssandbox-go/jssandbox.GitCommit=$(GIT_COMMIT)
+LDFLAGS = -X github.com/mozhou-tech/jssandbox-go/jssandbox.Version=$(VERSION) \
+          -X github.com/mozhou-tech/jssandbox-go/jssandbox.BuildTime=$(BUILD_TIME) \
+          -X github.com/mozhou-tech/jssandbox-go/jssandbox.GitCommit=$(GIT_COMMIT)
 
 # 默认目标
 .DEFAULT_GOAL := help

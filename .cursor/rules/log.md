@@ -73,7 +73,7 @@ logrus.WithField("key", "value").Info("信息")
 ```go
 import (
     "github.com/sirupsen/logrus"
-    "github.com/supacloud/jssandbox-go/jssandbox"
+    "github.com/mozhou-tech/jssandbox-go/jssandbox"
 )
 
 // 设置日志级别

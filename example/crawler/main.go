@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mozhou-tech/jssandbox-go/jssandbox"
 	"github.com/sirupsen/logrus"
-	"github.com/supacloud/jssandbox-go/jssandbox"
 )
 
 func main() {

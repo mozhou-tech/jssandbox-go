@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mozhou-tech/jssandbox-go/jssandbox"
 	"github.com/sirupsen/logrus"
-	"github.com/supacloud/jssandbox-go/jssandbox"
 )
 
 func main() {
@@ -306,4 +306,3 @@ func main() {
 		fmt.Printf("\n总共生成了 %.0f 个文件\n", count)
 	}
 }
-

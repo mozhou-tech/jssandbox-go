@@ -9,7 +9,7 @@ package main
 
 import (
     "context"
-    "github.com/supacloud/jssandbox-go/jssandbox"
+    "github.com/mozhou-tech/jssandbox-go/jssandbox"
 )
 
 func main() {
@@ -132,9 +132,9 @@ make build
 VERSION=v1.0.0 \
 BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S') \
 GIT_COMMIT=$(git rev-parse --short HEAD) \
-go build -ldflags "-X github.com/supacloud/jssandbox-go/jssandbox.Version=$VERSION \
-  -X github.com/supacloud/jssandbox-go/jssandbox.BuildTime=$BUILD_TIME \
-  -X github.com/supacloud/jssandbox-go/jssandbox.GitCommit=$GIT_COMMIT" \
+go build -ldflags "-X github.com/mozhou-tech/jssandbox-go/jssandbox.Version=$VERSION \
+  -X github.com/mozhou-tech/jssandbox-go/jssandbox.BuildTime=$BUILD_TIME \
+  -X github.com/mozhou-tech/jssandbox-go/jssandbox.GitCommit=$GIT_COMMIT" \
   -o bin/jssandbox ./cmd/jssandbox
 ```
 

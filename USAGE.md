@@ -21,7 +21,7 @@ package main
 
 import (
     "context"
-    "github.com/supacloud/jssandbox-go/jssandbox"
+    "github.com/mozhou-tech/jssandbox-go/jssandbox"
 )
 
 func main() {
