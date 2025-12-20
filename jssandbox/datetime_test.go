@@ -717,28 +717,30 @@ func TestDateTime_TimestampIntegration(t *testing.T) {
 	defer sb.Close()
 
 	code := `
-		// 获取当前时间戳
-		var now = getCurrentTimestamp();
-		
-		// 时间戳转日期
-		var dateFromTs = timestampToDate(now.timestamp, "YYYY-MM-DD HH:mm:ss");
-		
-		// 日期转时间戳
-		var tsFromDate = dateToTimestamp(dateFromTs.date);
-		
-		// 格式化时间戳
-		var formatted = formatTimestamp(now.timestamp, "YYYY-MM-DD");
-		
-		// 获取详细信息
-		var info = getTimestampInfo(now.timestamp);
-		
-		{
-			originalTimestamp: now.timestamp,
-			dateFromTimestamp: dateFromTs.date,
-			timestampFromDate: tsFromDate.timestamp,
-			formatted: formatted.date,
-			infoYear: info.year
-		};
+		(function() {
+			// 获取当前时间戳
+			var now = getCurrentTimestamp();
+			
+			// 时间戳转日期
+			var dateFromTs = timestampToDate(now.timestamp, "YYYY-MM-DD HH:mm:ss");
+			
+			// 日期转时间戳
+			var tsFromDate = dateToTimestamp(dateFromTs.date);
+			
+			// 格式化时间戳
+			var formatted = formatTimestamp(now.timestamp, "YYYY-MM-DD");
+			
+			// 获取详细信息
+			var info = getTimestampInfo(now.timestamp);
+			
+			return {
+				originalTimestamp: now.timestamp,
+				dateFromTimestamp: dateFromTs.date,
+				timestampFromDate: tsFromDate.timestamp,
+				formatted: formatted.date,
+				infoYear: info.year
+			};
+		})();
 	`
 
 	result, err := sb.Run(code)

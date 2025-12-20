@@ -113,18 +113,24 @@ func TestListProcesses_HasFields(t *testing.T) {
 	defer sb.Close()
 
 	code := `
-		var result = listProcesses();
-		var processes = result.processes;
-		if (processes.length > 0) {
-			var first = processes[0];
-			{
-				hasPid: first.pid !== undefined,
-				hasName: first.name !== undefined,
-				hasStatus: first.status !== undefined
-			};
-		} else {
-			{hasPid: false, hasName: false, hasStatus: false};
-		}
+		(function() {
+			var result = listProcesses();
+			var processes = result.processes;
+			if (processes.length > 0) {
+				var first = processes[0];
+				return {
+					hasPid: first.pid !== undefined,
+					hasName: first.name !== undefined,
+					hasStatus: first.status !== undefined
+				};
+			} else {
+				return {
+					hasPid: false,
+					hasName: false,
+					hasStatus: false
+				};
+			}
+		})();
 	`
 
 	result, err := sb.Run(code)

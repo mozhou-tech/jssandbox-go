@@ -2,6 +2,7 @@ package jssandbox
 
 import (
 	"context"
+	"fmt"
 	"testing"
 )
 
@@ -204,10 +205,12 @@ func TestMatchMarkdownCodeBlocks(t *testing.T) {
 
 	markdown := "Here is some code:\n```go\nfunc main() {\n    println(\"Hello\")\n}\n```\nAnd inline code: `code`\n"
 
-	code := `
-		var result = matchMarkdownCodeBlocks(` + "`" + markdown + "`" + `, true);
+	// 修复：使用 JSON 编码来安全地传递包含特殊字符的字符串
+	// 使用 fmt.Sprintf 和 %q 来正确转义字符串
+	code := fmt.Sprintf(`
+		var result = matchMarkdownCodeBlocks(%s, true);
 		result;
-	`
+	`, fmt.Sprintf("%q", markdown))
 
 	result, err := sb.Run(code)
 	if err != nil {

@@ -143,15 +143,18 @@ func (sb *Sandbox) registerText() {
 	// 匹配 Markdown 中的所有图片
 	sb.vm.Set("matchMarkdownImages", func(text string) goja.Value {
 		// 匹配 ![alt](url) 和 ![alt](url "title") 格式
-		imageRegex := regexp.MustCompile(`!\[([^\]]*)\]\(([^)]+)(?:\s+"([^"]+)")?\)`)
+		// 使用一个正则表达式匹配所有图片，然后检查是否有标题
+		// 匹配格式：![alt](url) 或 ![alt](url "title")
+		// 使用非贪婪匹配确保正确解析
+		imageRegex := regexp.MustCompile(`!\[([^\]]*)\]\(([^)]+?)(?:\s+"([^"]+)")?\)`)
 		matches := imageRegex.FindAllStringSubmatch(text, -1)
 
 		var images []map[string]interface{}
 		for _, match := range matches {
 			alt := match[1]
-			url := match[2]
+			url := strings.TrimSpace(match[2]) // URL 可能包含末尾空格
 			title := ""
-			if len(match) > 3 {
+			if len(match) > 3 && match[3] != "" {
 				title = match[3]
 			}
 
@@ -210,9 +213,16 @@ func (sb *Sandbox) registerText() {
 
 		// 如果包含行内代码
 		if includeInline {
+			// 匹配行内代码 `code`，但排除围栏代码块中的内容
+			// 先移除已匹配的围栏代码块，避免匹配到围栏代码块内的反引号
+			textForInline := text
+			for _, match := range fencedMatches {
+				textForInline = strings.Replace(textForInline, match[0], "", 1)
+			}
+
 			// 匹配行内代码 `code`
 			inlineRegex := regexp.MustCompile("`([^`]+)`")
-			inlineMatches := inlineRegex.FindAllStringSubmatch(text, -1)
+			inlineMatches := inlineRegex.FindAllStringSubmatch(textForInline, -1)
 			for _, match := range inlineMatches {
 				if len(match) > 1 {
 					codeBlocks = append(codeBlocks, map[string]interface{}{
@@ -345,9 +355,9 @@ func (sb *Sandbox) registerText() {
 		headerRegex := regexp.MustCompile(`^(#{1,6})\s+(.+)$`)
 
 		type HeaderNode struct {
-			Level   int
-			Content string
-			Line    int
+			Level    int
+			Content  string
+			Line     int
 			Children []*HeaderNode
 		}
 
@@ -408,4 +418,3 @@ func (sb *Sandbox) registerText() {
 		})
 	})
 }
-

@@ -187,18 +187,20 @@ func TestPath_Integration(t *testing.T) {
 	defer sb.Close()
 
 	code := `
-		var file = "/usr/local/bin/app.exe";
-		var dir = pathDir(file);
-		var base = pathBase(file);
-		var ext = pathExt(file);
-		var joined = pathJoin(dir.dir, base.base);
-		{
-			original: file,
-			dir: dir.dir,
-			base: base.base,
-			ext: ext.ext,
-			joined: joined.path
-		};
+		(function() {
+			var file = "/usr/local/bin/app.exe";
+			var dir = pathDir(file);
+			var base = pathBase(file);
+			var ext = pathExt(file);
+			var joined = pathJoin(dir.dir, base.base);
+			return {
+				original: file,
+				dir: dir.dir,
+				base: base.base,
+				ext: ext.ext,
+				joined: joined.path
+			};
+		})();
 	`
 
 	result, err := sb.Run(code)
