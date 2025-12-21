@@ -23,7 +23,8 @@
 17. [网络工具](#网络工具)
 18. [路径处理](#路径处理)
 19. [文本操作](#文本操作)
-20. [错误处理](#错误处理)
+20. [日志功能](#日志功能)
+21. [错误处理](#错误处理)
 
 ---
 
@@ -36,6 +37,10 @@
 var date = getCurrentDate();
 var time = getCurrentTime();
 console.log("日期:", date, "时间:", time);
+
+// 使用 logger 进行日志记录
+logger.info("应用程序启动");
+logger.debug("调试信息");
 ```
 
 ### 返回值处理
@@ -1900,6 +1905,255 @@ console.log(result.result); // "Hello"
 
 ---
 
+## 日志功能
+
+日志功能提供了完整的日志记录能力，支持不同级别的日志输出、结构化日志和日志级别管理。
+
+### logger.debug(...args)
+
+输出 Debug 级别日志
+
+**参数**:
+- `...args` (any): 可变参数，可以是字符串、对象等
+
+**返回值**: `undefined`
+
+**示例**:
+```javascript
+// 简单消息
+logger.debug("调试信息");
+
+// 多个参数
+logger.debug("用户ID:", 123, "操作:", "登录");
+
+// 结构化日志（第一个参数为对象）
+logger.debug({userId: 123, action: "login"}, "用户登录");
+```
+
+### logger.info(...args)
+
+输出 Info 级别日志
+
+**参数**:
+- `...args` (any): 可变参数
+
+**返回值**: `undefined`
+
+**示例**:
+```javascript
+logger.info("应用程序启动");
+logger.info("处理了", 100, "条记录");
+logger.info({count: 100, type: "records"}, "处理完成");
+```
+
+### logger.warn(...args)
+
+输出 Warn 级别日志
+
+**参数**:
+- `...args` (any): 可变参数
+
+**返回值**: `undefined`
+
+**示例**:
+```javascript
+logger.warn("警告：内存使用率较高");
+logger.warn({memory: "85%", threshold: "80%"}, "内存使用超过阈值");
+```
+
+### logger.error(...args)
+
+输出 Error 级别日志
+
+**参数**:
+- `...args` (any): 可变参数
+
+**返回值**: `undefined`
+
+**示例**:
+```javascript
+logger.error("发生错误：文件读取失败");
+logger.error({file: "data.txt", error: "permission denied"}, "文件操作失败");
+```
+
+### logger.fatal(...args)
+
+输出 Fatal 级别日志（实际记录为 Error 级别）
+
+**参数**:
+- `...args` (any): 可变参数
+
+**返回值**: `undefined`
+
+**示例**:
+```javascript
+logger.fatal("致命错误：系统无法继续运行");
+logger.fatal({component: "database", error: "connection lost"}, "关键组件故障");
+```
+
+### logger.trace(...args)
+
+输出 Trace 级别日志
+
+**参数**:
+- `...args` (any): 可变参数
+
+**返回值**: `undefined`
+
+**示例**:
+```javascript
+logger.trace("函数调用跟踪");
+logger.trace({function: "processData", step: 1}, "开始处理数据");
+```
+
+### logger.setLevel(level)
+
+设置日志级别
+
+**参数**:
+- `level` (string): 日志级别，可选值: "trace", "debug", "info", "warn"/"warning", "error", "fatal", "panic"
+
+**返回值**: `object`
+- `success` (boolean): 是否成功
+- `level` (string): 设置的日志级别
+- `error` (string, 可选): 错误信息（如果级别无效）
+
+**示例**:
+```javascript
+// 设置为 Debug 级别（会显示所有日志）
+var result = logger.setLevel("debug");
+if (result.success) {
+    console.log("日志级别已设置为:", result.level);
+}
+
+// 设置为 Error 级别（只显示错误和致命错误）
+logger.setLevel("error");
+```
+
+### logger.getLevel()
+
+获取当前日志级别
+
+**返回值**: `object`
+- `success` (boolean): 是否成功
+- `level` (string): 当前日志级别
+
+**示例**:
+```javascript
+var levelInfo = logger.getLevel();
+console.log("当前日志级别:", levelInfo.level);
+```
+
+### logger.isLevelEnabled(level)
+
+检查某个日志级别是否启用
+
+**参数**:
+- `level` (string): 要检查的日志级别
+
+**返回值**: `object`
+- `success` (boolean): 是否成功
+- `enabled` (boolean): 该级别是否启用
+- `error` (string, 可选): 错误信息（如果级别无效）
+
+**示例**:
+```javascript
+var check = logger.isLevelEnabled("debug");
+if (check.enabled) {
+    logger.debug("Debug 日志已启用，这条消息会显示");
+} else {
+    console.log("Debug 日志未启用");
+}
+```
+
+### logger.withFields(fields)
+
+创建带字段的日志记录器（结构化日志）
+
+**参数**:
+- `fields` (object): 要附加的字段对象
+
+**返回值**: `object` - 返回一个新的日志记录器对象，包含所有日志级别方法（debug, info, warn, error, fatal, trace）
+
+**示例**:
+```javascript
+// 创建带字段的日志记录器
+var userLogger = logger.withFields({userId: 123, username: "john"});
+
+// 使用带字段的日志记录器
+userLogger.info("用户登录");
+// 输出: 包含 userId 和 username 字段的日志
+
+userLogger.error("操作失败");
+// 输出: 包含 userId 和 username 字段的错误日志
+
+// 链式使用
+logger.withFields({requestId: "req-123"})
+    .info("处理请求")
+    .warn("请求处理较慢");
+```
+
+### 日志功能完整示例
+
+```javascript
+// 1. 设置日志级别
+logger.setLevel("debug");
+
+// 2. 基本日志输出
+logger.debug("调试信息");
+logger.info("应用程序启动");
+logger.warn("警告信息");
+logger.error("错误信息");
+
+// 3. 多参数日志
+logger.info("用户", "john", "执行了操作", "login");
+
+// 4. 结构化日志（直接方式）
+logger.info({userId: 123, action: "login"}, "用户登录");
+
+// 5. 结构化日志（使用 withFields）
+var requestLogger = logger.withFields({
+    requestId: "req-123",
+    method: "POST",
+    path: "/api/users"
+});
+requestLogger.info("收到请求");
+requestLogger.debug("处理中...");
+requestLogger.info("请求处理完成");
+
+// 6. 条件日志
+var levelCheck = logger.isLevelEnabled("debug");
+if (levelCheck.enabled) {
+    logger.debug("详细的调试信息");
+}
+
+// 7. 获取当前日志级别
+var currentLevel = logger.getLevel();
+console.log("当前日志级别:", currentLevel.level);
+```
+
+### 日志级别说明
+
+日志级别从低到高：
+- **trace**: 最详细的跟踪信息
+- **debug**: 调试信息
+- **info**: 一般信息（默认级别）
+- **warn**: 警告信息
+- **error**: 错误信息
+- **fatal**: 致命错误
+- **panic**: 系统恐慌
+
+设置某个级别后，只有该级别及更高级别的日志会被输出。例如，设置为 "warn" 后，只会输出 warn、error、fatal 和 panic 级别的日志。
+
+### 注意事项
+
+1. **结构化日志**: 当第一个参数是对象时，会自动提取对象字段作为结构化日志的字段。
+2. **日志级别**: 默认日志级别为 "info"，可以通过 `setLevel()` 修改。
+3. **console 对象**: 除了 `logger` 对象，还可以使用 `console.log()`, `console.error()` 等（在系统操作章节中说明）。
+4. **性能**: 在生产环境中，建议将日志级别设置为 "warn" 或 "error" 以提高性能。
+
+---
+
 ## 错误处理
 
 ### 通用错误处理模式
@@ -2096,6 +2350,54 @@ processed.forEach(function(item) {
     output.push([item.name, item.age.toString(), item.city]);
 });
 writeCSV("output.csv", output);
+```
+
+### 示例6: 日志记录
+
+```javascript
+// 设置日志级别
+logger.setLevel("debug");
+
+// 应用程序启动日志
+logger.info("应用程序启动");
+logger.info({version: "1.0.0", env: "production"}, "配置加载完成");
+
+// 处理请求时的结构化日志
+var requestLogger = logger.withFields({
+    requestId: "req-12345",
+    userId: 123,
+    ip: "192.168.1.1"
+});
+
+requestLogger.info("收到HTTP请求");
+requestLogger.debug("请求参数:", JSON.stringify({name: "test"}));
+
+// 处理过程中的日志
+logger.debug("开始处理数据");
+logger.info("处理了", 100, "条记录");
+
+// 错误日志
+try {
+    // 某些操作
+    throw new Error("操作失败");
+} catch (error) {
+    logger.error({error: error.message, stack: error.stack}, "处理失败");
+}
+
+// 警告日志
+var memoryUsage = 85;
+if (memoryUsage > 80) {
+    logger.warn({memory: memoryUsage + "%", threshold: "80%"}, "内存使用率较高");
+}
+
+// 检查日志级别
+var levelInfo = logger.getLevel();
+console.log("当前日志级别:", levelInfo.level);
+
+// 条件日志输出
+if (logger.isLevelEnabled("debug").enabled) {
+    logger.debug("详细的调试信息");
+}
 ```
 
 ---
