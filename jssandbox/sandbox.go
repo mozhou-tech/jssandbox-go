@@ -71,6 +71,7 @@ func (sb *Sandbox) registerExtensions() {
 	sb.registerSystemOps()
 
 	// 注册基础工具功能（始终启用）
+	sb.registerLogger()     // 日志功能
 	sb.registerCrypto()     // 加密/解密
 	sb.registerCompress()   // 压缩/解压缩
 	sb.registerCSV()        // CSV处理

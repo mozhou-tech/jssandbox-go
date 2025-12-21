@@ -96,4 +96,3 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 )
 
-exclude codeup.aliyun.com/64fd1f00f82f735b8cef84be/mozhou-tech/rxdb-go v0.0.5
