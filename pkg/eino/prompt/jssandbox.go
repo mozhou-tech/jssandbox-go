@@ -87,13 +87,8 @@ func (c *chatTemplate) Format(ctx context.Context, vs map[string]any, _ ...promp
 	}
 
 	// 执行 JavaScript 代码
-	var result goja.Value
-	var err error
-	if c.timeout > 0 {
-		result, err = c.sandbox.RunWithTimeout(c.code, c.timeout)
-	} else {
-		result, err = c.sandbox.Run(c.code)
-	}
+	// timeout 在初始化时已保证大于 0（默认为 30 秒），因此始终使用 RunWithTimeout
+	result, err := c.sandbox.RunWithTimeout(c.code, c.timeout)
 	if err != nil {
 		return nil, fmt.Errorf("execute jssandbox code failed: %w", err)
 	}
