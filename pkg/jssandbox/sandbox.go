@@ -152,6 +152,11 @@ func (sb *Sandbox) Get(name string) goja.Value {
 	return sb.vm.Get(name)
 }
 
+// Delete 从JavaScript运行时中删除变量，返回是否删除成功
+func (sb *Sandbox) Delete(name string) error {
+	return sb.vm.GlobalObject().Delete(name)
+}
+
 // Close 关闭沙盒并清理资源
 func (sb *Sandbox) Close() error {
 	// 关闭浏览器 allocator（如果已初始化）

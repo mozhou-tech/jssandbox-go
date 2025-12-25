@@ -89,8 +89,21 @@ func (c *chatTemplate) Format(ctx context.Context, vs map[string]any, _ ...promp
 	// 执行 JavaScript 代码
 	// timeout 在初始化时已保证大于 0（默认为 30 秒），因此始终使用 RunWithTimeout
 	result, err := c.sandbox.RunWithTimeout(c.code, c.timeout)
+
+	// 清理注入的变量，防止状态污染
+	var deleteErrors []error
+	for k := range vs {
+		if err := c.sandbox.Delete(k); err != nil {
+			deleteErrors = append(deleteErrors, fmt.Errorf("key: %s, error: %w", k, err))
+		}
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("execute jssandbox code failed: %w", err)
+	}
+
+	if len(deleteErrors) > 0 {
+		return nil, fmt.Errorf("failed to clean up injected variables: %v", deleteErrors)
 	}
 
 	// 将结果转换为消息数组
@@ -226,43 +239,51 @@ func convertMessagePart(partData interface{}) (*schema.ChatMessagePart, error) {
 
 	switch typeStr {
 	case "image_url":
+		imageURLData, ok := partMap["imageURL"].(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("part type is image_url but imageURL field is missing or invalid")
+		}
 		part.Type = schema.ChatMessagePartTypeImageURL
-		if imageURLData, ok := partMap["imageURL"].(map[string]interface{}); ok {
-			part.ImageURL = &schema.ChatMessageImageURL{}
-			if url, ok := imageURLData["url"].(string); ok {
-				part.ImageURL.URL = url
-			}
-			if mimeType, ok := imageURLData["mimeType"].(string); ok {
-				part.ImageURL.MIMEType = mimeType
-			}
+		part.ImageURL = &schema.ChatMessageImageURL{}
+		if url, ok := imageURLData["url"].(string); ok {
+			part.ImageURL.URL = url
+		}
+		if mimeType, ok := imageURLData["mimeType"].(string); ok {
+			part.ImageURL.MIMEType = mimeType
 		}
 	case "audio_url":
+		audioURLData, ok := partMap["audioURL"].(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("part type is audio_url but audioURL field is missing or invalid")
+		}
 		part.Type = schema.ChatMessagePartTypeAudioURL
-		if audioURLData, ok := partMap["audioURL"].(map[string]interface{}); ok {
-			part.AudioURL = &schema.ChatMessageAudioURL{}
-			if url, ok := audioURLData["url"].(string); ok {
-				part.AudioURL.URL = url
-			}
-			if mimeType, ok := audioURLData["mimeType"].(string); ok {
-				part.AudioURL.MIMEType = mimeType
-			}
+		part.AudioURL = &schema.ChatMessageAudioURL{}
+		if url, ok := audioURLData["url"].(string); ok {
+			part.AudioURL.URL = url
+		}
+		if mimeType, ok := audioURLData["mimeType"].(string); ok {
+			part.AudioURL.MIMEType = mimeType
 		}
 	case "video_url":
+		videoURLData, ok := partMap["videoURL"].(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("part type is video_url but videoURL field is missing or invalid")
+		}
 		part.Type = schema.ChatMessagePartTypeVideoURL
-		if videoURLData, ok := partMap["videoURL"].(map[string]interface{}); ok {
-			part.VideoURL = &schema.ChatMessageVideoURL{}
-			if url, ok := videoURLData["url"].(string); ok {
-				part.VideoURL.URL = url
-			}
-			if mimeType, ok := videoURLData["mimeType"].(string); ok {
-				part.VideoURL.MIMEType = mimeType
-			}
+		part.VideoURL = &schema.ChatMessageVideoURL{}
+		if url, ok := videoURLData["url"].(string); ok {
+			part.VideoURL.URL = url
+		}
+		if mimeType, ok := videoURLData["mimeType"].(string); ok {
+			part.VideoURL.MIMEType = mimeType
 		}
 	case "text":
-		part.Type = schema.ChatMessagePartTypeText
-		if text, ok := partMap["text"].(string); ok {
-			part.Text = text
+		text, ok := partMap["text"].(string)
+		if !ok {
+			return nil, fmt.Errorf("part type is text but text field is missing or invalid")
 		}
+		part.Type = schema.ChatMessagePartTypeText
+		part.Text = text
 	default:
 		return nil, fmt.Errorf("unknown part type: %s", typeStr)
 	}
