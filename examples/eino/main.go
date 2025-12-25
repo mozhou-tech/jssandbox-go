@@ -62,16 +62,10 @@ func main() {
 	chatModel.BindTools([]*schema.ToolInfo{toolInfo})
 
 	// 3. 构建 Eino Graph
-	// 我们创建一个简单的 ReAct 节点，让模型能够调用工具
-	graph := compose.NewGraph[[]*schema.Message, *schema.Message]()
+	// 为了维护对话历史，我们让图中流转的数据类型始终为 []*schema.Message
+	graph := compose.NewGraph[[]*schema.Message, []*schema.Message]()
 
-	// 添加模型节点
-	err = graph.AddChatModelNode("chat", chatModel)
-	if err != nil {
-		logrus.Fatalf("添加模型节点失败: %v", err)
-	}
-
-	// 添加工具执行节点
+	// 首先创建工具执行节点组件
 	toolsNode, err := compose.NewToolNode(ctx, &compose.ToolsNodeConfig{
 		Tools: []einoTool.BaseTool{jsTool},
 	})
@@ -79,7 +73,47 @@ func main() {
 		logrus.Fatalf("创建工具节点失败: %v", err)
 	}
 
-	err = graph.AddToolsNode("tools", toolsNode)
+	// 添加模型节点
+	// 我们使用 Lambda 包装模型，以便在生成响应后将其追加到历史记录中
+	chatLambda, err := compose.AnyLambda(
+		func(ctx context.Context, input []*schema.Message, opts ...any) ([]*schema.Message, error) {
+			res, err := chatModel.Generate(ctx, input)
+			if err != nil {
+				return nil, err
+			}
+			return append(input, res), nil
+		},
+		nil, nil, nil)
+	if err != nil {
+		logrus.Fatalf("创建模型 Lambda 失败: %v", err)
+	}
+	err = graph.AddLambdaNode("chat", chatLambda)
+	if err != nil {
+		logrus.Fatalf("添加模型节点失败: %v", err)
+	}
+
+	// 添加工具执行节点
+	// 同样使用 Lambda 包装，执行最后一条消息中的工具调用，并将结果追加到历史记录中
+	toolsLambda, err := compose.AnyLambda(
+		func(ctx context.Context, input []*schema.Message, opts ...any) ([]*schema.Message, error) {
+			if len(input) == 0 {
+				return input, nil
+			}
+			lastMsg := input[len(input)-1]
+
+			// toolsNode 接收 Assistant 消息并返回 Tool 消息列表
+			toolResults, err := toolsNode.Invoke(ctx, lastMsg)
+			if err != nil {
+				return nil, err
+			}
+
+			return append(input, toolResults...), nil
+		},
+		nil, nil, nil)
+	if err != nil {
+		logrus.Fatalf("创建工具 Lambda 失败: %v", err)
+	}
+	err = graph.AddLambdaNode("tools", toolsLambda)
 	if err != nil {
 		logrus.Fatalf("添加工具节点失败: %v", err)
 	}
@@ -90,10 +124,13 @@ func main() {
 		logrus.Fatalf("添加起始边失败: %v", err)
 	}
 
-	// 简单的循环逻辑：如果模型返回了工具调用，则执行工具并返回给模型
-	// 如果有工具调用，连向 tools 节点；否则结束
-	err = graph.AddBranch("chat", compose.NewGraphBranch(func(ctx context.Context, msg *schema.Message) (string, error) {
-		if len(msg.ToolCalls) > 0 {
+	// 分支逻辑：检查最后一条消息是否有工具调用
+	err = graph.AddBranch("chat", compose.NewGraphBranch(func(ctx context.Context, input []*schema.Message) (string, error) {
+		if len(input) == 0 {
+			return compose.END, nil
+		}
+		lastMsg := input[len(input)-1]
+		if len(lastMsg.ToolCalls) > 0 {
 			return "tools", nil
 		}
 		return compose.END, nil
@@ -127,6 +164,9 @@ func main() {
 	}
 
 	fmt.Println("\n" + os.ExpandEnv("==================== Agent 输出 ===================="))
-	fmt.Printf("结果: %s\n", output.Content)
+	// 输出最后一条消息的内容
+	if len(output) > 0 {
+		fmt.Printf("结果: %s\n", output[len(output)-1].Content)
+	}
 	fmt.Println(os.ExpandEnv("===================================================="))
 }
