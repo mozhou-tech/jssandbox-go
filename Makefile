@@ -6,9 +6,9 @@ BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # 构建标志
-LDFLAGS = -X github.com/mozhou-tech/jssandbox-go/jssandbox.Version=$(VERSION) \
-          -X github.com/mozhou-tech/jssandbox-go/jssandbox.BuildTime=$(BUILD_TIME) \
-          -X github.com/mozhou-tech/jssandbox-go/jssandbox.GitCommit=$(GIT_COMMIT)
+LDFLAGS = -X github.com/mozhou-tech/jssandbox-go/pkg/jssandbox.Version=$(VERSION) \
+          -X github.com/mozhou-tech/jssandbox-go/pkg/jssandbox.BuildTime=$(BUILD_TIME) \
+          -X github.com/mozhou-tech/jssandbox-go/pkg/jssandbox.GitCommit=$(GIT_COMMIT)
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -25,11 +25,11 @@ build: ## 构建 jssandbox 可执行文件
 
 test: ## 运行测试
 	@echo "运行测试..."
-	@go test -v ./jssandbox/...
+	@go test -v ./pkg/jssandbox/...
 
 test-coverage: ## 生成测试覆盖率报告
 	@echo "生成测试覆盖率报告..."
-	@go test -v -coverprofile=coverage.out ./jssandbox/...
+	@go test -v -coverprofile=coverage.out ./pkg/jssandbox/...
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "覆盖率报告已生成: coverage.html"
 
@@ -40,9 +40,7 @@ clean: ## 清理构建文件
 	@echo "清理完成"
 
 install: ## 安装到 $GOPATH/bin
-	@echo "安装 jssandbox..."
-	@go install -ldflags "$(LDFLAGS)" ./cmd/jssandbox
-	@echo "安装完成"
+	go mod tidy
 
 lint: ## 运行代码检查（需要安装 golangci-lint）
 	@if command -v golangci-lint >/dev/null 2>&1; then \

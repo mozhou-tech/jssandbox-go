@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mozhou-tech/jssandbox-go/jssandbox"
+	"github.com/mozhou-tech/jssandbox-go/pkg/jssandbox"
 	"github.com/sirupsen/logrus"
 )
 
