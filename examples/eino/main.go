@@ -101,6 +101,11 @@ func main() {
 			}
 			lastMsg := input[len(input)-1]
 
+			// 打印模型生成的工具调用（JS 脚本）
+			for _, tc := range lastMsg.ToolCalls {
+				fmt.Printf("\n[LLM 生成的脚本] 调用工具: %s\n脚本参数: %s\n", tc.Function.Name, tc.Function.Arguments)
+			}
+
 			// toolsNode 接收 Assistant 消息并返回 Tool 消息列表
 			toolResults, err := toolsNode.Invoke(ctx, lastMsg)
 			if err != nil {
@@ -163,10 +168,19 @@ func main() {
 		logrus.Fatalf("执行失败: %v", err)
 	}
 
-	fmt.Println("\n" + os.ExpandEnv("==================== Agent 输出 ===================="))
-	// 输出最后一条消息的内容
-	if len(output) > 0 {
-		fmt.Printf("结果: %s\n", output[len(output)-1].Content)
+	fmt.Println("\n" + os.ExpandEnv("==================== Agent 运行全纪录 ===================="))
+	for i, msg := range output {
+		role := string(msg.Role)
+		content := msg.Content
+		if content == "" && len(msg.ToolCalls) > 0 {
+			content = "[请求工具调用]"
+		}
+		fmt.Printf("[%d] %s: %s\n", i, role, content)
+		if len(msg.ToolCalls) > 0 {
+			for _, tc := range msg.ToolCalls {
+				fmt.Printf("    -> 工具调用: %s\n       参数: %s\n", tc.Function.Name, tc.Function.Arguments)
+			}
+		}
 	}
-	fmt.Println(os.ExpandEnv("===================================================="))
+	fmt.Println(os.ExpandEnv("=========================================================="))
 }
