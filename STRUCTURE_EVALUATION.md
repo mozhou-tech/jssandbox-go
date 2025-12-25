@@ -186,9 +186,9 @@ BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # 构建标志
-LDFLAGS = -X github.com/mozhou-tech/jssandbox-go/jssandbox.Version=$(VERSION) \
-          -X github.com/mozhou-tech/jssandbox-go/jssandbox.BuildTime=$(BUILD_TIME) \
-          -X github.com/mozhou-tech/jssandbox-go/jssandbox.GitCommit=$(GIT_COMMIT)
+LDFLAGS = -X github.com/mozhou-tech/jssandbox-go/pkg/jssandbox.Version=$(VERSION) \
+          -X github.com/mozhou-tech/jssandbox-go/pkg/jssandbox.BuildTime=$(BUILD_TIME) \
+          -X github.com/mozhou-tech/jssandbox-go/pkg/jssandbox.GitCommit=$(GIT_COMMIT)
 
 build:
 	@echo "构建 jssandbox..."

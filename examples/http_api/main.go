@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
-	"github.com/mozhou-tech/jssandbox-go/jssandbox"
+	"github.com/mozhou-tech/jssandbox-go/pkg/jssandbox"
 	"github.com/sirupsen/logrus"
 )
 
