@@ -36,7 +36,7 @@
 
 1.  **不支持 `async/await`**：沙盒环境目前不支持异步语法。请使用提供的同步函数。
 2.  **不支持 top-level `await`**：代码必须是纯同步执行的。
-3.  **执行隔离**：作为 Eino 等工具调用时，代码会自动包装在 `{ ... }` 块中。这意味着您可以在不同次调用中使用相同的 `const` 或 `let` 变量名而不会冲突。
+3.  **执行隔离与返回值**：作为 Eino 等工具调用时，代码会自动包装在 `(function(){ ... })()` 匿名函数中。这意味着您必须使用 `return` 语句来返回您想要获取的结果，同时您可以在不同次调用中使用相同的 `const` 或 `let` 变量名而不会冲突。
 4.  **函数同步返回**：沙盒中看似异步的操作（如 `httpGet`, `session.navigate`）实际上是同步返回结果的，无需 `await`。
 
 ### 基本用法
@@ -54,14 +54,26 @@ logger.debug("调试信息");
 
 ### 返回值处理
 
+在 Eino 工具调用中，您**必须**使用 `return` 语句返回最终结果。如果未显式使用 `return`，工具将返回 `undefined`。
+
+```javascript
+// 正确：使用 return 返回结果
+var response = httpGet("https://api.ipify.org");
+return response.body;
+
+// 错误：没有 return，即使有最后一条表达式，结果也是 undefined
+var response = httpGet("https://api.ipify.org");
+response.body; 
+```
+
 大多数函数返回对象，包含 `success` 字段表示操作是否成功：
 
 ```javascript
 var result = writeFile("test.txt", "Hello");
 if (result.success) {
-    console.log("写入成功");
+    return "写入成功";
 } else {
-    console.error("写入失败:", result.error);
+    return "写入失败: " + result.error;
 }
 ```
 

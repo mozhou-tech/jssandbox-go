@@ -37,7 +37,7 @@ const JSSandboxToolDescription = `JavaScript沙盒执行工具，用于在安全
 
 重要限制与说明：
 1. **支持ECMAScript 5.1，不支持 async/await**：沙盒环境不支持异步语法。请使用提供的同步函数（如 httpGet 而不是 fetch）。
-2. **执行隔离**：每次工具调用都在独立的块级作用域中执行，因此可以使用 const/let 而不必担心多次调用间的命名冲突。
+2. **执行隔离与返回值**：代码在独立的匿名函数中执行。请使用 return 语句返回你想要的结果，否则工具将返回 undefined。
 3. **错误处理**：HTTP 等操作返回的对象可能包含 error 字段（如果操作失败）。建议始终检查该字段。
 
 可用函数列表：
@@ -59,9 +59,9 @@ const resp = httpGet('https://api.ipify.org');
 if (resp.error) {
   // 如果失败，尝试备用服务
   const resp2 = httpGet('https://ifconfig.me/ip');
-  resp2.error ? '无法获取IP: ' + resp2.error : resp2.body;
+  return resp2.error ? '无法获取IP: ' + resp2.error : resp2.body;
 } else {
-  resp.body;
+  return resp.body;
 }`
 
 // JSSandboxTool JavaScript沙盒工具
@@ -165,8 +165,8 @@ func (t *JSSandboxTool) Execute(ctx context.Context, params *JSSandboxParams) (s
 		}
 	}
 
-	// 包装代码在块作用域中，以避免多次调用间的 const/let 命名冲突
-	wrappedCode := "{\n" + params.Code + "\n}"
+	// 包装代码在匿名函数中，以支持 top-level return 并提供执行隔离
+	wrappedCode := "(function(){\n" + params.Code + "\n})()"
 
 	// 执行JavaScript代码
 	var result goja.Value
