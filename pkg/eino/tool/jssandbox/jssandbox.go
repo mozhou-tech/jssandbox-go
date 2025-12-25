@@ -36,33 +36,30 @@ import (
 const JSSandboxToolDescription = `JavaScript沙盒执行工具，用于在安全的沙盒环境中执行JavaScript代码。
 
 重要限制与说明：
-1. **支持ECMAScript 5.1，不支持 async/await**：沙盒环境不支持异步语法。请使用提供的同步函数（如 httpGet 而不是 fetch）。
-2. **执行隔离与返回值**：代码在独立的匿名函数中执行。请使用 return 语句返回你想要的结果，否则工具将返回 undefined。
-3. **错误处理**：HTTP 等操作返回的对象可能包含 error 字段（如果操作失败）。建议始终检查该字段。
+1. **不支持 async/await**：沙盒环境不支持异步语法，代码必须同步执行。
+2. **执行隔离与返回值**：代码在匿名函数中执行。**必须使用 return 语句返回结果**，否则将返回 undefined。
+3. **错误处理**：大多数操作返回包含 error 字段的对象，建议始终检查 success 或 error 字段。
 
-可用函数列表：
-- HTTP请求：
-  - httpGet(url): 发送GET请求，同步返回结果对象 {status, statusText, headers, body, contentType, error?}
-  - httpPost(url, body): 发送POST请求，同步返回结果对象
-  - httpRequest(url, options): 发送自定义请求。options支持 {method, headers, body, timeout}
-- 浏览器自动化 (browser)：
-  - const session = createBrowserSession(timeout?): 创建浏览器会话
-  - session.navigate(url): 导航到URL
-  - session.click(selector): 点击元素
-  - session.fill(selector, value): 填写表单
-  - session.evaluate(code): 在页面执行JS
-  - session.screenshot(path): 截图
-  - session.close(): 关闭会话
+主要可用函数：
+- 系统/环境：getCurrentDateTime(), getCPUNum(), getMemorySize(), getDiskSize(), sleep(ms), getEnv(name), readConfig(path)
+- HTTP请求：httpGet(url), httpPost(url, body), httpRequest(url, options), fetch(url, options)
+- 文件系统：readFile(path, options?), writeFile(path, content), appendFile(path, content), readFileHead(path, lines), getFileInfo(path), getFileHash(path, type), readImageBase64(path)
+- 文档读取：readWord(path), readExcel(path), readPPT(path), readPDF(path)
+- 浏览器自动化：createBrowserSession(timeout) -> navigate(url), wait(selector/sec), click(selector), fill(selector, value), evaluate(code), screenshot(path), getHTML(), getURL(), close()
+- 图片处理：imageInfo(path), imageResize(in, out, w, h?), imageCrop(in, out, x, y, w, h), imageRotate(in, out, angle), imageConvert(in, out), imageQuality(in, out, q)
+- 数据验证/处理：validateEmail(email), validateURL(url), validateIP(ip), validatePhone(phone), formatDate(date, fmt), parseDate(str), addDays(date, days)
+- 编码/加密：encodeBase64(data), decodeBase64(str), encryptAES(data, key), decryptAES(enc, key), hashSHA256(data), generateUUID(), generateRandomString(len)
+- 压缩/CSV：compressZip(files, out), extractZip(zip, dir), readCSV(path, opts), writeCSV(path, data), parseCSV(str)
+- 网络/进程：resolveDNS(host), ping(host), checkPort(host, port), execCommand(cmd), listProcesses(), killProcess(pid)
+- 文本/路径：textReplace(text, old, new), textSplit(text, sep), textJoin(parts, sep), textTrim(text), textContains(text, sub), pathJoin(...paths), pathAbs(path)
+- 日志记录：logger.info/debug/warn/error/fatal(...args), logger.setLevel(level), logger.withFields(fields)
 
-示例 (获取IP地址并处理错误)：
-const resp = httpGet('https://api.ipify.org');
-if (resp.error) {
-  // 如果失败，尝试备用服务
-  const resp2 = httpGet('https://ifconfig.me/ip');
-  return resp2.error ? '无法获取IP: ' + resp2.error : resp2.body;
-} else {
-  return resp.body;
-}`
+示例：
+const resp = httpGet('https://api.example.com/data');
+if (resp.error) return '错误: ' + resp.error;
+const data = JSON.parse(resp.body);
+writeFile('data.json', resp.body);
+return { count: data.length, status: 'success' };`
 
 // JSSandboxTool JavaScript沙盒工具
 type JSSandboxTool struct {
