@@ -141,4 +141,26 @@ func (sb *Sandbox) registerHTTP() {
 			"error": "httpRequest 不是一个函数",
 		})
 	})
+
+	// 添加 fetch polyfill (同步版本)
+	// 注意：虽然标准 fetch 是异步的，但在本沙盒中为了简单和避免 SyntaxError (await)，
+	// 我们提供一个同步版本。
+	sb.vm.RunString(`
+		function fetch(url, options) {
+			const res = httpRequest(url, options);
+			if (res.error) {
+				throw new Error(res.error);
+			}
+			return {
+				ok: res.status >= 200 && res.status < 300,
+				status: res.status,
+				statusText: res.statusText,
+				headers: {
+					get: (name) => res.headers[name] || res.headers[name.toLowerCase()]
+				},
+				text: () => res.body,
+				json: () => JSON.parse(res.body)
+			};
+		}
+	`)
 }

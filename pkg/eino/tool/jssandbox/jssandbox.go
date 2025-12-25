@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package tool
+package jssandbox
 
 import (
 	"context"
@@ -33,20 +33,36 @@ import (
 )
 
 // JSSandboxToolDescription 工具描述
-const JSSandboxToolDescription = `JavaScript沙盒执行工具，用于在安全的沙盒环境中执行JavaScript代码
-* 支持执行任意JavaScript代码，包括系统操作、HTTP请求、文件系统操作、浏览器自动化等功能
-* 代码执行在隔离的沙盒环境中进行，具有超时保护机制
-* 支持设置执行超时时间，防止代码长时间运行
-* 返回代码执行结果，包括返回值和控制台输出
+const JSSandboxToolDescription = `JavaScript沙盒执行工具，用于在安全的沙盒环境中执行JavaScript代码。
 
-功能特性：
-* 系统操作：获取时间、日期、CPU、内存、磁盘信息等
-* HTTP请求：支持GET、POST等HTTP请求
-* 文件系统：文件读写、文件信息获取、文件哈希等
-* 浏览器自动化：页面导航、截图、点击、表单填写等
-* 文档处理：Word、Excel、PPT、PDF文档读取
-* 图片处理：图片格式转换、缩放、裁剪等
-* 其他：加密解密、压缩解压、CSV处理、数据验证等`
+重要限制与说明：
+1. **支持ECMAScript 5.1，不支持 async/await**：沙盒环境不支持异步语法。请使用提供的同步函数（如 httpGet 而不是 fetch）。
+2. **执行隔离**：每次工具调用都在独立的块级作用域中执行，因此可以使用 const/let 而不必担心多次调用间的命名冲突。
+3. **错误处理**：HTTP 等操作返回的对象可能包含 error 字段（如果操作失败）。建议始终检查该字段。
+
+可用函数列表：
+- HTTP请求：
+  - httpGet(url): 发送GET请求，同步返回结果对象 {status, statusText, headers, body, contentType, error?}
+  - httpPost(url, body): 发送POST请求，同步返回结果对象
+  - httpRequest(url, options): 发送自定义请求。options支持 {method, headers, body, timeout}
+- 浏览器自动化 (browser)：
+  - const session = createBrowserSession(timeout?): 创建浏览器会话
+  - session.navigate(url): 导航到URL
+  - session.click(selector): 点击元素
+  - session.fill(selector, value): 填写表单
+  - session.evaluate(code): 在页面执行JS
+  - session.screenshot(path): 截图
+  - session.close(): 关闭会话
+
+示例 (获取IP地址并处理错误)：
+const resp = httpGet('https://api.ipify.org');
+if (resp.error) {
+  // 如果失败，尝试备用服务
+  const resp2 = httpGet('https://ifconfig.me/ip');
+  resp2.error ? '无法获取IP: ' + resp2.error : resp2.body;
+} else {
+  resp.body;
+}`
 
 // JSSandboxTool JavaScript沙盒工具
 type JSSandboxTool struct {
@@ -149,13 +165,16 @@ func (t *JSSandboxTool) Execute(ctx context.Context, params *JSSandboxParams) (s
 		}
 	}
 
+	// 包装代码在块作用域中，以避免多次调用间的 const/let 命名冲突
+	wrappedCode := "{\n" + params.Code + "\n}"
+
 	// 执行JavaScript代码
 	var result goja.Value
 	var err error
 	if timeout > 0 {
-		result, err = t.sandbox.RunWithTimeout(params.Code, timeout)
+		result, err = t.sandbox.RunWithTimeout(wrappedCode, timeout)
 	} else {
-		result, err = t.sandbox.Run(params.Code)
+		result, err = t.sandbox.Run(wrappedCode)
 	}
 
 	if err != nil {

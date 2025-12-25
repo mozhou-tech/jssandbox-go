@@ -30,6 +30,15 @@
 
 ## 快速开始
 
+### 重要：语法限制
+
+**必须注意以下限制，否则会导致代码执行失败：**
+
+1.  **不支持 `async/await`**：沙盒环境目前不支持异步语法。请使用提供的同步函数。
+2.  **不支持 top-level `await`**：代码必须是纯同步执行的。
+3.  **执行隔离**：作为 Eino 等工具调用时，代码会自动包装在 `{ ... }` 块中。这意味着您可以在不同次调用中使用相同的 `const` 或 `let` 变量名而不会冲突。
+4.  **函数同步返回**：沙盒中看似异步的操作（如 `httpGet`, `session.navigate`）实际上是同步返回结果的，无需 `await`。
+
 ### 基本用法
 
 ```javascript
@@ -189,23 +198,18 @@ console.log("结束");
 - `statusText` (string): 状态文本
 - `body` (string): 响应体
 - `headers` (object): 响应头
-- `error` (string, 可选): 错误信息
+- `error` (string, 可选): 如果请求发生网络错误（如连接超时、拒绝连接），此字段将包含错误描述。建议优先检查此字段。
 
 **示例**:
 ```javascript
-// GET请求
+// 带错误检查的 GET 请求
 var response = httpRequest("https://api.example.com/data");
-console.log("状态码:", response.status);
-console.log("响应体:", response.body);
-
-// POST请求
-var postResponse = httpRequest("https://api.example.com/data", {
-    method: "POST",
-    headers: {
-        "Content-Type": "application/json"
-    },
-    body: JSON.stringify({name: "test"})
-});
+if (response.error) {
+    console.error("请求失败:", response.error);
+} else {
+    console.log("状态码:", response.status);
+    console.log("响应体:", response.body);
+}
 ```
 
 ### httpGet(url)
@@ -238,6 +242,18 @@ POST请求（简化版）
 ```javascript
 var response = httpPost("https://api.example.com/data", "test data");
 console.log("状态码:", response.status);
+```
+
+### fetch(url, options?) (Polyfill)
+
+为了兼容大模型的习惯，提供了一个**同步版**的 `fetch`。
+
+**注意**: 这个 `fetch` 是同步的，**严禁**使用 `await fetch(...)`。
+
+**示例**:
+```javascript
+var response = fetch("https://api.ipify.org");
+console.log("IP:", response.text());
 ```
 
 ---

@@ -9,9 +9,8 @@ import (
 	einoTool "github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
+	"github.com/mozhou-tech/jssandbox-go/pkg/eino/tool/jssandbox"
 	"github.com/sirupsen/logrus"
-
-	"github.com/mozhou-tech/jssandbox-go/pkg/eino/tool"
 )
 
 func main() {
@@ -25,7 +24,7 @@ func main() {
 
 	// 1. 初始化 JSSandbox 工具
 	// JSSandboxTool 实现了 eino 的 tool.InvokableTool 接口
-	jsTool, err := tool.NewJSSandboxTool(ctx, &tool.JSSandboxConfig{
+	jsTool, err := jssandbox.NewJSSandboxTool(ctx, &jssandbox.JSSandboxConfig{
 		DefaultTimeout: 0, // 使用默认 30s
 	})
 	if err != nil {
@@ -42,7 +41,7 @@ func main() {
 	baseURL := os.Getenv("OPENAI_BASE_URL")
 	modelName := os.Getenv("OPENAI_MODEL")
 	if modelName == "" {
-		modelName = "gpt-4o"
+		modelName = "qwen3-max"
 	}
 
 	chatModel, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
@@ -159,7 +158,7 @@ func main() {
 	// 4. 执行
 	input := []*schema.Message{
 		schema.SystemMessage("你是一个强大的助手，可以使用 jssandbox 工具执行 JavaScript 代码来完成任务。"),
-		schema.UserMessage("请通过执行 JavaScript 代码获取当前的日期和时间。"),
+		schema.UserMessage("发送HTTP请求给http://httpbin.org/ip，获取IP地址"),
 	}
 
 	fmt.Println("正在发送请求给 Agent...")
