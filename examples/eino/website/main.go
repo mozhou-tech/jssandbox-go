@@ -9,7 +9,7 @@ import (
 	einoTool "github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
-	"github.com/mozhou-tech/jssandbox-go/pkg/eino/tool/jssandbox"
+	"github.com/mozhou-tech/jssandbox-go/pkg/eino/tools/jssandbox"
 	"github.com/sirupsen/logrus"
 )
 
