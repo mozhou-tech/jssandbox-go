@@ -200,6 +200,27 @@ var hash = getFileHash("test.txt", "md5");
 console.log("MD5:", hash.hash);
 ```
 
+### 文档处理 (PDF)
+```javascript
+// 合并 PDF
+pdfMerge(["1.pdf", "2.pdf"], "merged.pdf");
+
+// 获取页数
+var pages = pdfGetPageCount("document.pdf").pages;
+
+// 添加水印
+pdfAddTextWatermark("input.pdf", "output.pdf", "CONFIDENTIAL", {
+    opacity: 0.5,
+    scale: 0.5
+});
+
+// 导出图片
+pdfExportImages("document.pdf", "./extracted_images");
+
+// 将图片转为 PDF
+pdfImportImages(["1.png", "2.png"], "images.pdf");
+```
+
 ### 文档读取
 ```javascript
 // 读取Word文档第一页

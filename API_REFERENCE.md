@@ -8,23 +8,24 @@
 2. [系统操作](#系统操作)
 3. [HTTP请求](#http请求)
 4. [文件系统操作](#文件系统操作)
-5. [文档读取](#文档读取)
-6. [浏览器自动化](#浏览器自动化)
-7. [图片处理](#图片处理)
-8. [文件类型检测](#文件类型检测)
-9. [加密/解密](#加密解密)
-10. [压缩/解压缩](#压缩解压缩)
-11. [CSV处理](#csv处理)
-12. [环境变量和配置](#环境变量和配置)
-13. [数据验证](#数据验证)
-14. [日期时间增强](#日期时间增强)
-15. [编码/解码](#编码解码)
-16. [进程管理](#进程管理)
-17. [网络工具](#网络工具)
-18. [路径处理](#路径处理)
-19. [文本操作](#文本操作)
-20. [日志功能](#日志功能)
-21. [错误处理](#错误处理)
+5. [文档处理 (PDF)](#文档处理-pdf)
+6. [文档读取](#文档读取)
+7. [浏览器自动化](#浏览器自动化)
+8. [图片处理](#图片处理)
+9. [文件类型检测](#文件类型检测)
+10. [加密/解密](#加密解密)
+11. [压缩/解压缩](#压缩解压缩)
+12. [CSV处理](#csv处理)
+13. [环境变量和配置](#环境变量和配置)
+14. [数据验证](#数据验证)
+15. [日期时间增强](#日期时间增强)
+16. [编码/解码](#编码解码)
+17. [进程管理](#进程管理)
+18. [网络工具](#网络工具)
+19. [路径处理](#路径处理)
+20. [文本操作](#文本操作)
+21. [日志功能](#日志功能)
+22. [错误处理](#错误处理)
 
 ---
 
@@ -479,6 +480,132 @@ openFile("document.pdf"); // 使用默认PDF阅读器打开
 ```
 
 ---
+
+## 文档处理 (PDF)
+
+基于 `pdfcpu` 实现的 PDF 处理功能。
+
+### pdfGetPageCount(path)
+
+获取 PDF 文档的总页数。
+
+**参数**:
+- `path` (string): PDF 文件路径
+
+**返回值**: `object`
+- `success` (boolean): 是否成功
+- `pages` (number): 总页数
+- `error` (string, 可选): 错误信息
+
+**示例**:
+```javascript
+var result = pdfGetPageCount("document.pdf");
+if (result.success) {
+    console.log("总页数:", result.pages);
+}
+```
+
+### pdfMerge(inFiles, outFile)
+
+合并多个 PDF 文件为一个。
+
+**参数**:
+- `inFiles` (array): 输入 PDF 文件路径数组
+- `outFile` (string): 输出 PDF 文件路径
+
+**返回值**: `object`
+- `success` (boolean): 是否成功
+- `error` (string, 可选): 错误信息
+
+### pdfSplit(inFile, outDir)
+
+将 PDF 文件拆分为单页 PDF。
+
+**参数**:
+- `inFile` (string): 输入 PDF 文件路径
+- `outDir` (string): 输出目录
+
+**返回值**: `object`
+- `success` (boolean): 是否成功
+- `error` (string, 可选): 错误信息
+
+### pdfExtractPages(inFile, outDir, pages)
+
+提取 PDF 中的指定页面。
+
+**参数**:
+- `inFile` (string): 输入 PDF 文件路径
+- `outDir` (string): 输出目录
+- `pages` (array): 要提取的页码或范围，例如 `["1", "2-5", "8"]`
+
+**返回值**: `object`
+- `success` (boolean): 是否成功
+- `error` (string, 可选): 错误信息
+
+### pdfOptimize(inFile, outFile)
+
+优化 PDF 文件大小。
+
+**参数**:
+- `inFile` (string): 输入 PDF 文件路径
+- `outFile` (string): 输出 PDF 文件路径
+
+**返回值**: `object`
+- `success` (boolean): 是否成功
+- `error` (string, 可选): 错误信息
+
+### pdfValidate(inFile)
+
+验证 PDF 文件的有效性。
+
+**参数**:
+- `inFile` (string): PDF 文件路径
+
+**返回值**: `object`
+- `success` (boolean): 是否成功
+- `error` (string, 可选): 错误信息
+
+### pdfAddTextWatermark(inFile, outFile, text, options?)
+
+给 PDF 添加文本水印。
+
+**参数**:
+- `inFile` (string): 输入 PDF 文件路径
+- `outFile` (string): 输出 PDF 文件路径
+- `text` (string): 水印文本
+- `options` (object, 可选): 水印选项
+  - `onTop` (boolean): 是否在内容上方（默认 true）
+  - `opacity` (number): 不透明度 0.0-1.0
+  - `scale` (number): 缩放比例
+  - `rotation` (number): 旋转角度
+
+**返回值**: `object`
+- `success` (boolean): 是否成功
+- `error` (string, 可选): 错误信息
+
+### pdfExportImages(inFile, outDir)
+
+从 PDF 中导出所有图片。
+
+**参数**:
+- `inFile` (string): 输入 PDF 文件路径
+- `outDir` (string): 输出目录
+
+**返回值**: `object`
+- `success` (boolean): 是否成功
+- `error` (string, 可选): 错误信息
+
+### pdfImportImages(imgFiles, outFile)
+
+将多张图片导入并合并为一个 PDF。
+
+**参数**:
+- `imgFiles` (array): 输入图片文件路径数组
+- `outFile` (string): 输出 PDF 文件路径
+
+**返回值**: `object`
+- `success` (boolean): 是否成功
+- `error` (string, 可选): 错误信息
 
 ## 文档读取
 

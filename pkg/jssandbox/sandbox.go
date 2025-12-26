@@ -96,6 +96,7 @@ func (sb *Sandbox) registerExtensions() {
 	}
 	if sb.config.EnableDocuments {
 		sb.registerDocuments()
+		sb.registerDocx()
 	}
 	if sb.config.EnableImageProcessing {
 		sb.registerImageProcessing()
