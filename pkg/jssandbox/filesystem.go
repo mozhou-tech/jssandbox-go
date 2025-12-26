@@ -414,6 +414,127 @@ func (sb *Sandbox) registerFileSystem() {
 		})
 	})
 
+	// 获取当前工作目录
+	getCurrentDir := func() map[string]interface{} {
+		dir, err := os.Getwd()
+		if err != nil {
+			return map[string]interface{}{
+				"success": false,
+				"error":   err.Error(),
+			}
+		}
+		return map[string]interface{}{
+			"success": true,
+			"path":    dir,
+		}
+	}
+	sb.vm.Set("getCurrentDir", getCurrentDir)
+	sb.vm.Set("pwd", getCurrentDir)
+
+	// 创建目录
+	makeDir := func(call goja.FunctionCall) map[string]interface{} {
+		if len(call.Arguments) < 1 {
+			return map[string]interface{}{
+				"success": false,
+				"error":   "需要提供目录路径",
+			}
+		}
+		dirPath := call.Arguments[0].String()
+		recursive := false
+		if len(call.Arguments) > 1 {
+			recursive = call.Arguments[1].ToBoolean()
+		}
+
+		var err error
+		if recursive {
+			err = os.MkdirAll(dirPath, 0755)
+		} else {
+			err = os.Mkdir(dirPath, 0755)
+		}
+
+		if err != nil {
+			return map[string]interface{}{
+				"success": false,
+				"error":   err.Error(),
+			}
+		}
+		return map[string]interface{}{
+			"success": true,
+		}
+	}
+	sb.vm.Set("makeDir", makeDir)
+	sb.vm.Set("mkdir", makeDir)
+
+	// 列出目录内容
+	listDir := func(dirPath string) map[string]interface{} {
+		entries, err := os.ReadDir(dirPath)
+		if err != nil {
+			return map[string]interface{}{
+				"success": false,
+				"error":   err.Error(),
+			}
+		}
+
+		var result []map[string]interface{}
+		for _, entry := range entries {
+			info, _ := entry.Info()
+			item := map[string]interface{}{
+				"name":  entry.Name(),
+				"isDir": entry.IsDir(),
+			}
+			if info != nil {
+				item["size"] = info.Size()
+				item["modTime"] = info.ModTime().Format("2006-01-02 15:04:05")
+			}
+			result = append(result, item)
+		}
+
+		return map[string]interface{}{
+			"success": true,
+			"entries": result,
+		}
+	}
+	sb.vm.Set("listDir", listDir)
+	sb.vm.Set("ls", listDir)
+
+	// 检查路径是否存在
+	sb.vm.Set("pathExists", func(path string) bool {
+		_, err := os.Stat(path)
+		return err == nil || os.IsExist(err)
+	})
+
+	// 删除目录
+	sb.vm.Set("removeDir", func(call goja.FunctionCall) map[string]interface{} {
+		if len(call.Arguments) < 1 {
+			return map[string]interface{}{
+				"success": false,
+				"error":   "需要提供目录路径",
+			}
+		}
+		dirPath := call.Arguments[0].String()
+		recursive := false
+		if len(call.Arguments) > 1 {
+			recursive = call.Arguments[1].ToBoolean()
+		}
+
+		var err error
+		if recursive {
+			err = os.RemoveAll(dirPath)
+		} else {
+			err = os.Remove(dirPath)
+		}
+
+		if err != nil {
+			return map[string]interface{}{
+				"success": false,
+				"error":   err.Error(),
+			}
+		}
+		return map[string]interface{}{
+			"success": true,
+		}
+	})
+
 	// 删除文件
 	sb.vm.Set("deleteFile", func(filePath string) map[string]interface{} {
 		err := os.Remove(filePath)
