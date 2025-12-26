@@ -89,6 +89,8 @@ release: verify-release
 	@VERSION=$$(date +%Y%m%d-%H%M%S); \
 	echo "准备发布版本 v$$VERSION..."; \
 	echo "1. 确保所有更改已提交:"; \
+	go mod tidy; \
+	git commit -a -m "tidy go.mod and go.sum"; \
 	git status --short; \
 	echo ""; \
 	echo "2. 创建版本标签 v$$VERSION..."; \
